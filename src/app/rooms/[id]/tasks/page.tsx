@@ -751,7 +751,7 @@ function RoomTasksPage() {
                       "dueDate",
                       task.dueDate.split("T")[0]
                     );
-                    updateTaskForm.setValue("userId", task.user.id);
+                    updateTaskForm.setValue("userId", task?.user?.id);
                     onOpenUpdateTask();
                   }}
                   className="text-lg cursor-pointer absolute top-0 left-1"
