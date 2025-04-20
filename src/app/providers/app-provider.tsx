@@ -18,6 +18,7 @@ import { getMessaging, onMessage } from "firebase/messaging";
 import { NotificationContent } from "../config/noti-toast-element";
 import { log } from "console";
 import NotificationProvider from "./notification-provider";
+import getAuthentication from "../(auth)/actions/get-authentication";
 
 export enum RoleType {
   ADMIN = "ADMIN",
@@ -71,7 +72,7 @@ export default function AppProvider({
 
   const setUser = useCallback((tokens: TokenPair | null) => {
     if (tokens) {
-      localStorage.setItem("task_user", JSON.stringify(tokens));
+      // localStorage.setItem("task_user", JSON.stringify(tokens));
       const decodedToken: any = jwtDecode(tokens?.access_token);
       if (decodedToken) {
         const user = {
@@ -84,7 +85,7 @@ export default function AppProvider({
         return;
       }
     }
-    localStorage.removeItem("task_user");
+    // localStorage.removeItem("task_user");
     setUserState(null);
   }, []);
   const handleLogin = async (email: string, password: string) => {
@@ -101,7 +102,7 @@ export default function AppProvider({
           fullName: decodedToken.fullName,
           role: decodedToken.role,
         };
-        localStorage.setItem("task_user", JSON.stringify(data));
+        // localStorage.setItem("task_user", JSON.stringify(data));
         console.log(newUser);
 
         setTokens(data);
@@ -115,12 +116,11 @@ export default function AppProvider({
 
   const handleLogout = async () => {
     try {
-      const task_user = localStorage.getItem("task_user");
-      const tokens = task_user ? JSON.parse(task_user) : null;
+      // const task_user = localStorage.getItem("task_user");
+      // const tokens = task_user ? JSON.parse(task_user) : null;
       if (tokens) {
         await axiosPrivate.post("/auth/logout", tokens);
         setUserState(null);
-        localStorage.removeItem("task_user");
         clearCookieLocal();
 
         await firebaseCloudMessaging.deleteToken();
@@ -145,29 +145,33 @@ export default function AppProvider({
     //     console.log("event for the service worker", event)
     //   );
     // }
+    const effectFunc = async () => {
+      const cookieUser = await getAuthentication();
+      console.log("cookieUser", cookieUser);
 
-    const task_user = localStorage.getItem("task_user");
-    const tokens = task_user ? JSON.parse(task_user) : null;
-    if (tokens) {
-      const decodedToken: any = jwtDecode(tokens?.access_token);
-      console.log(decodedToken);
+      if (cookieUser) {
+        const decodedToken: any = jwtDecode(cookieUser?.access_token);
+        if (decodedToken) {
+          const newUser = {
+            sub: decodedToken.sub,
+            email: decodedToken.email,
+            fullName: decodedToken.fullName,
+            role: decodedToken.role,
+          };
+          console.log(newUser);
+          // localStorage.setItem("task_user", JSON.stringify(cookieUser));
+          setUserState(newUser);
 
-      if (decodedToken) {
-        const newUser = {
-          sub: decodedToken.sub,
-          email: decodedToken.email,
-          fullName: decodedToken.fullName,
-          role: decodedToken.role,
-        };
-        console.log(newUser);
-
-        setUserState(newUser);
-        setTokens(tokens);
-
-        return;
+          setTokens(cookieUser);
+          return;
+        }
+      } else {
+        localStorage.removeItem("task_user");
+        setUserState(null);
+        setTokens(null);
       }
-    }
-    setUserState(null);
+    };
+    effectFunc();
   }, []);
 
   return (

@@ -118,7 +118,7 @@ export default function SignUpPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
+            <Button type="submit" className="w-full" disabled={loadingSignup}>
               Submit
             </Button>
           </form>

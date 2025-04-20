@@ -30,7 +30,7 @@ const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
 const LocalStorageFcmKey = "task_app_fcm_token";
 
 export const firebaseCloudMessaging = {
-  tokenInlocalforage: async () => {
+  tokenInlocalStorage: async () => {
     return localStorage.getItem(LocalStorageFcmKey);
   }, //initializing firebase app
   init: async function () {
@@ -39,10 +39,10 @@ export const firebaseCloudMessaging = {
     }
 
     try {
-      const tokenInLocalForage = await this.tokenInlocalforage();
+      const tokenInLocalStorage = await this.tokenInlocalStorage();
       //if FCM token is already there just return the token
-      if (tokenInLocalForage !== null) {
-        return tokenInLocalForage;
+      if (tokenInLocalStorage !== null) {
+        return tokenInLocalStorage;
       }
       //requesting notification permission from browser
       const status = await Notification.requestPermission();
@@ -75,7 +75,7 @@ export const firebaseCloudMessaging = {
   deleteToken: async function () {
     try {
       const messaging = getMessaging();
-      const currentToken = await this.tokenInlocalforage();
+      const currentToken = await this.tokenInlocalStorage();
 
       if (currentToken) {
         await deleteToken(messaging);

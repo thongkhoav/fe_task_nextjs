@@ -64,6 +64,7 @@ const joinRoomformSchema = z.object({
 export default function RoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const { user } = useAppContext();
+  // for add room modal
   const { isOpen, onOpen, onOpenChange, onClose } = useDisclosure();
   const {
     isOpen: isOpenJoinRoom,

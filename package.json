@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "node src/swEnvBuild.js && next dev",
     "build": "node src/swEnvBuild.js && next build",
-    "start": "next start",
+    "start": "node src/swEnvBuild.js && next start",
     "lint": "next lint"
   },
   "dependencies": {
