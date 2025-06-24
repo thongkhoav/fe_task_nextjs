@@ -57,8 +57,11 @@ import {
 } from "@/app/common/util/toast";
 import { TaskStatus } from "@/app/common/type/task-status.type";
 import { Style } from "@/app/common/util/style";
+import { socket } from "@/app/socket/socket";
+import DraggableTask from "./DraggableTask";
+import TaskColumn from "./TaskColumn";
 
-interface Task {
+export interface Task {
   id: string;
   title: string;
   description: string;
@@ -69,6 +72,10 @@ interface Task {
     id: string;
     fullName: string;
     email: string;
+  };
+  room: {
+    id: string;
+    name: string;
   };
 }
 
@@ -89,9 +96,15 @@ interface MemberListResponse {
   data: Member[];
 }
 
+const TaskStatusBadgeColor: Record<TaskStatus, string> = {
+  [TaskStatus.TODO]: "bg-yellow-200 text-yellow-800",
+  [TaskStatus.PROCESSING]: "bg-blue-200 text-blue-800",
+  [TaskStatus.DONE]: "bg-green-200 text-green-800",
+};
+
 const addTaskSchema = z.object({
   title: z.string().min(2).max(30),
-  description: z.string().min(6).max(30),
+  description: z.string().min(6).max(100),
   dueDate: z.string().refine((value) => {
     return new Date(value).getTime() > Date.now();
   }, "Due date must be in the future"),
@@ -101,7 +114,7 @@ const addTaskSchema = z.object({
 const updateTaskSchema = z.object({
   taskId: z.string(),
   title: z.string().min(2).max(30),
-  description: z.string().min(6).max(30),
+  description: z.string().min(6).max(100),
   dueDate: z.string().refine((value) => {
     return new Date(value).getTime() > Date.now();
   }, "Due date must be in the future"),
@@ -123,6 +136,14 @@ function RoomTasksPage() {
   const [roomTaskList, setRoomTaskList] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [todoTasks, setTodoTasks] = useState<Task[]>([]);
+  const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
+  const [doneTasks, setDoneTasks] = useState<Task[]>([]);
+  // key is taskId, value is status
+  const [statusUpdateTask, setStatusUpdateTask] = useState<
+    Record<string, string>
+  >({});
+
   const axiosPrivate = useAxiosPrivate();
   const {
     isOpen: isOpenAddTask,
@@ -177,11 +198,11 @@ function RoomTasksPage() {
   const [isOpenLeaveRoom, setOpenLeaveRoom] = useState(false);
 
   useEffect(() => {
-    console.log("Room ID:", id);
     // console.log(user);
 
     const fetchData = async () => {
       if (!id) return;
+
       try {
         setLoading(true);
 
@@ -194,11 +215,53 @@ function RoomTasksPage() {
         router.push("/rooms");
       } finally {
         setLoading(false);
+
+        // Join the room via socket
+        socket.emit("join_room", id);
+
+        // Listen for task updates from the socket
+        socket.on("task_updated", (task: Task) => {
+          console.log("Task updated from socket:", task);
+          if (task.room.id !== id) return; // Only update tasks for the current room
+          console.log("Task updated:", task);
+          setRoomTaskList((prevTasks) =>
+            prevTasks.map((t) => (t.id === task.id ? task : t))
+          );
+          // Update the statusUpdateTask state
+          setStatusUpdateTask((prev) => ({
+            ...prev,
+            [task.id]: task.status,
+          }));
+        });
       }
     };
 
     fetchData();
+
+    return () => {
+      // Clean up the socket listener when the component unmounts
+      socket.off("task_updated");
+    };
   }, [user]);
+
+  // if tasks are updated, update the state todoTasks, inProgressTasks, doneTasks
+  useEffect(() => {
+    if (roomTaskList.length > 0) {
+      const todo = roomTaskList.filter(
+        (task) => task.status === TaskStatus.TODO
+      );
+      const inProgress = roomTaskList.filter(
+        (task) => task.status === TaskStatus.PROCESSING
+      );
+      const done = roomTaskList.filter(
+        (task) => task.status === TaskStatus.DONE
+      );
+
+      setTodoTasks(todo);
+      setInProgressTasks(inProgress);
+      setDoneTasks(done);
+    }
+  }, [roomTaskList]);
 
   const loadRoom = async () => {
     try {
@@ -328,22 +391,59 @@ function RoomTasksPage() {
         return;
       }
       // api call to update task status
-      await axiosPrivate.patch("/task/update-status", {
+      // await axiosPrivate.patch("/task/update-status", {
+      //   taskId,
+      //   status,
+      // });
+      socket.emit("update_task", {
         taskId,
         status,
+        curUserId: user?.sub,
       });
+
       ToastSuccess("Task status updated to " + status);
-      setRoomTaskList(
-        roomTaskList.map((task) => {
-          if (task.id === taskId) {
-            return {
-              ...task,
-              status: status,
-            };
-          }
-          return task;
-        })
+      // setRoomTaskList(
+      //   roomTaskList.map((task) => {
+      //     if (task.id === taskId) {
+      //       return {
+      //         ...task,
+      //         status: status,
+      //       };
+      //     }
+      //     return task;
+      //   })
+      // );
+    } catch (err) {
+      console.error("Failed to update task status:", err);
+    }
+  };
+
+  const onDragChangeTaskStatus = async (taskId: string, status: TaskStatus) => {
+    try {
+      console.log("Drag change task status:", taskId, status);
+      if (!taskId || !status) {
+        console.error("Invalid form data");
+        return;
+      }
+      const isSameStatus = roomTaskList.find(
+        (task) => task.id === taskId && task.status === status
       );
+      if (isSameStatus) {
+        ToastWarning("Task status is already " + status);
+        return;
+      }
+      // api call to update task status
+      // await axiosPrivate.patch("/task/update-status", {
+      //   taskId,
+      //   status,
+      // });
+      socket.emit("update_task", {
+        taskId,
+        status,
+        curUserId: user?.sub,
+      });
+
+      ToastSuccess("Task status updated to " + status);
     } catch (err) {
       console.error("Failed to update task status:", err);
     }
@@ -393,6 +493,20 @@ function RoomTasksPage() {
     }
   };
 
+  // add to state statusUpdateTask
+  const onChangeSelectStatus = (
+    e: FormEvent<HTMLSelectElement>,
+    taskId: string
+  ) => {
+    console.log("Selected status:", e.currentTarget.value);
+    const status = e.currentTarget.value as TaskStatus;
+    setStatusUpdateTask((prev) => ({
+      ...prev,
+      [taskId]: status,
+    }));
+    console.log("Status update task:", statusUpdateTask);
+  };
+
   if (loading) {
     return <Spinner />;
   }
@@ -412,9 +526,9 @@ function RoomTasksPage() {
   }
 
   return (
-    <div className="h-full flex flex-col ">
+    <div className="h-full flex flex-col w-full">
       <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white">
-        <div className="flex justify-start gap-2">
+        <div className="flex justify-start gap-2 container mx-auto">
           <Modal
             isOpen={isOpenUpdateRoom}
             onOpenChange={onOpenUpdateRoom}
@@ -720,6 +834,7 @@ function RoomTasksPage() {
         </div>
       </div>
 
+      {/* Task list */}
       <div className="mt-10 mb-3 text-center font-bold text-3xl relative text-white">
         Tasks
         <span
@@ -735,206 +850,319 @@ function RoomTasksPage() {
           <Spinner />
         </div>
       ) : roomTaskList.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {roomTaskList.map((task, index) => (
-            <div
-              key={task.id}
-              className="border rounded-md px-5 py-2 shadow-sm flex justify-between relative bg-white"
-            >
-              {user?.sub === roomDetail?.owner?.id && (
-                <button
-                  onClick={() => {
-                    updateTaskForm.setValue("taskId", task.id);
-                    updateTaskForm.setValue("title", task.title);
-                    updateTaskForm.setValue("description", task.description);
-                    updateTaskForm.setValue(
-                      "dueDate",
-                      task.dueDate.split("T")[0]
-                    );
-                    updateTaskForm.setValue("userId", task?.user?.id);
-                    onOpenUpdateTask();
-                  }}
-                  className="text-lg cursor-pointer absolute top-0 left-1"
-                >
-                  <Settings />
-                </button>
-              )}
-              <Modal
-                isOpen={isOpenUpdateTask}
-                onOpenChange={onOpenChangeUpdateTask}
-                placement="top-center"
+        <div className="flex gap-5 justify-between mx-2">
+          {/* 3 task columns base on status */}
+          {Object.entries(TaskStatus).map(([status, _]) => {
+            let tasksToShow: Task[] = [];
+            switch (status) {
+              case TaskStatus.TODO:
+                tasksToShow = todoTasks;
+                break;
+              case TaskStatus.PROCESSING:
+                tasksToShow = inProgressTasks;
+                break;
+              case TaskStatus.DONE:
+                tasksToShow = doneTasks;
+                break;
+              default:
+                tasksToShow = [];
+            }
+
+            // if (tasksToShow.length === 0) {
+            //   return (
+            //     <div
+            //       key={status}
+            //       className="flex flex-col p-4 bg-gray-100 rounded-md shadow-md flex-1"
+            //     >
+            //       {/* show color of status */}
+            //       <h2
+            //         className={`text-xl font-bold capitalize ${
+            //           TaskStatusBadgeColor[status as TaskStatus]
+            //         }`}
+            //       >
+            //         {status.toLowerCase()}
+            //       </h2>
+            //       <div className="text-center text-gray-500 ">
+            //         No tasks in this status
+            //       </div>
+            //     </div>
+            //   );
+            // }
+
+            return (
+              <TaskColumn
+                key={status}
+                status={status}
+                tasks={tasksToShow}
+                badgeColor={TaskStatusBadgeColor[status as TaskStatus]}
+                onDropTask={(taskId, newStatus) => {
+                  onDragChangeTaskStatus(taskId, newStatus as TaskStatus);
+                }}
               >
-                <ModalContent>
-                  {(onClose) => (
-                    <Form {...updateTaskForm}>
-                      <form
-                        onSubmit={updateTaskForm.handleSubmit(onEditTask)}
-                        className="space-y-6"
+                {tasksToShow.map((task: Task) => (
+                  <DraggableTask key={task?.id} item={task}>
+                    <div
+                      key={task.id}
+                      className="border rounded-md pr-2 pl-8 py-2 shadow-sm flex justify-between relative bg-white"
+                    >
+                      {user?.sub === roomDetail?.owner?.id && (
+                        <button
+                          onClick={() => {
+                            updateTaskForm.setValue("taskId", task.id);
+                            updateTaskForm.setValue("title", task.title);
+                            updateTaskForm.setValue(
+                              "description",
+                              task.description
+                            );
+                            updateTaskForm.setValue(
+                              "dueDate",
+                              task.dueDate.split("T")[0]
+                            );
+                            updateTaskForm.setValue("userId", task?.user?.id);
+                            onOpenUpdateTask();
+                          }}
+                          className="text-lg cursor-pointer absolute top-0 left-1"
+                        >
+                          <Settings />
+                        </button>
+                      )}
+                      <Modal
+                        isOpen={isOpenUpdateTask}
+                        onOpenChange={onOpenChangeUpdateTask}
+                        placement="top-center"
                       >
-                        <ModalHeader className="flex flex-col gap-1">
-                          Update task
-                        </ModalHeader>
-                        <ModalBody>
-                          <FormField
-                            control={updateTaskForm.control}
-                            name="title"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Title</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Task title" />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          <FormField
-                            control={updateTaskForm.control}
-                            name="description"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Description</FormLabel>
-                                <FormControl>
-                                  <Textarea
-                                    {...field}
-                                    placeholder="Task description"
+                        <ModalContent>
+                          {(onClose) => (
+                            <Form {...updateTaskForm}>
+                              <form
+                                onSubmit={updateTaskForm.handleSubmit(
+                                  onEditTask
+                                )}
+                                className="space-y-6"
+                              >
+                                <ModalHeader className="flex flex-col gap-1">
+                                  Update task
+                                </ModalHeader>
+                                <ModalBody>
+                                  <FormField
+                                    control={updateTaskForm.control}
+                                    name="title"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Title</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            {...field}
+                                            placeholder="Task title"
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
                                   />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
+                                  <FormField
+                                    control={updateTaskForm.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Description</FormLabel>
+                                        <FormControl>
+                                          <Textarea
+                                            {...field}
+                                            placeholder="Task description"
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <FormField
+                                    control={updateTaskForm.control}
+                                    name="dueDate"
+                                    render={({ field }) => {
+                                      const tomorrow = new Date(today);
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
+                                      return (
+                                        <FormItem>
+                                          <FormLabel>Due date</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              {...field}
+                                              type="date"
+                                              min={
+                                                tomorrow
+                                                  .toISOString()
+                                                  .split("T")[0]
+                                              }
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      );
+                                    }}
+                                  />
+                                  <FormField
+                                    control={updateTaskForm.control}
+                                    name="userId"
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel className="mr-2">
+                                          Assign to
+                                        </FormLabel>
+                                        <FormControl className="border rounded-sm">
+                                          <select {...field}>
+                                            <option
+                                              value=""
+                                              selected={
+                                                task.user?.id === "" ||
+                                                task.user?.id === null
+                                              }
+                                            >
+                                              None
+                                            </option>
+                                            {members.map((member) => (
+                                              <option
+                                                key={member.user.id}
+                                                value={member.user.id}
+                                                selected={
+                                                  task.user?.id ===
+                                                  member.user.id
+                                                }
+                                              >
+                                                {member.user.fullName}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </ModalBody>
+                                <ModalFooter>
+                                  <Button
+                                    color="danger"
+                                    variant="light"
+                                    onPress={onCloseAddTask}
+                                  >
+                                    Close
+                                  </Button>
+                                  <Button color="primary" type="submit">
+                                    Update
+                                  </Button>
+                                </ModalFooter>
+                              </form>
+                            </Form>
+                          )}
+                        </ModalContent>
+                      </Modal>
+                      <div className="flex items-center gap-5">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <h1 className="text-xl">{task.title}</h1>
+                            {/* Status badge */}
+                            <span
+                              className={`px-2 py-1 rounded-md text-sm ${
+                                TaskStatusBadgeColor[task.status]
+                              }`}
+                            >
+                              {task.status}
+                            </span>
+                          </div>
+                          <p className="flex items-center">
+                            {task.user ? (
+                              <Tooltip content={task.user.email}>
+                                <p className="flex items-center gap-1">
+                                  <CircleUserRound
+                                    size={20}
+                                    className="text-xl text-blue-500"
+                                  />
+                                  <span>{task.user.fullName}</span>
+                                </p>
+                              </Tooltip>
+                            ) : (
+                              <p className="flex items-center gap-1">
+                                <CircleUserRound
+                                  size={20}
+                                  className="text-xl text-red-500"
+                                />
+                                <span className="text-red-500">Unassigned</span>
+                              </p>
                             )}
-                          />
-                          <FormField
-                            control={updateTaskForm.control}
-                            name="dueDate"
-                            render={({ field }) => {
-                              const tomorrow = new Date(today);
-                              tomorrow.setDate(tomorrow.getDate() + 1);
-                              return (
-                                <FormItem>
-                                  <FormLabel>Due date</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      {...field}
-                                      type="date"
-                                      min={tomorrow.toISOString().split("T")[0]}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              );
-                            }}
-                          />
-                          <FormField
-                            control={updateTaskForm.control}
-                            name="userId"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="mr-2">
-                                  Assign to
-                                </FormLabel>
-                                <FormControl className="border rounded-sm">
-                                  <select {...field}>
-                                    {members.map((member) => (
-                                      <option
-                                        key={member.user.id}
-                                        value={member.user.id}
-                                      >
-                                        {member.user.fullName}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </ModalBody>
-                        <ModalFooter>
-                          <Button
-                            color="danger"
-                            variant="light"
-                            onPress={onCloseAddTask}
-                          >
-                            Close
-                          </Button>
-                          <Button color="primary" type="submit">
-                            Add
-                          </Button>
-                        </ModalFooter>
-                      </form>
-                    </Form>
-                  )}
-                </ModalContent>
-              </Modal>
-              <div className="flex items-center gap-5">
-                <span className="text-lg font-bold w-7 h-7 flex items-center justify-center rounded-full bg-blue-300">
-                  {index + 1}
-                </span>
-                <div className="flex flex-col">
-                  <h1 className="text-xl">{task.title}</h1>
-                  <p className="flex items-center">
-                    {task.user ? (
-                      <Tooltip content={task.user.email}>
-                        <p className="flex items-center gap-1">
-                          <CircleUserRound
-                            size={20}
-                            className="text-xl text-blue-500"
-                          />
-                          <span>{task.user.fullName}</span>
+                          </p>
+                          <p className="text-sm mt-4">
+                            <span className="font-bold"> Description: </span>
+                            {task.description}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col justify-between items-end">
+                        <p className="flex items-center">
+                          <Calendar className="text-xl text-blue-500" />
+                          <span>
+                            {new Date(task.dueDate).toLocaleDateString()}
+                          </span>
                         </p>
-                      </Tooltip>
-                    ) : (
-                      <p className="flex items-center gap-1">
-                        <CircleUserRound
-                          size={20}
-                          className="text-xl text-red-500"
-                        />
-                        <span className="text-red-500">Unassigned</span>
-                      </p>
-                    )}
-                  </p>
-                  <p className="text-sm mt-4">
-                    <span className="font-bold"> Description: </span>
-                    {task.description}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col justify-between items-end">
-                <p className="flex items-center">
-                  <Calendar className="text-xl text-blue-500" />
-                  <span>{new Date(task.dueDate).toLocaleDateString()}</span>
-                </p>
-                <div className="flex items-center gap-2">
-                  {roomDetail?.owner?.id === user?.sub ||
-                  task?.user?.id === user?.sub ? (
-                    <form onSubmit={updateStatus} className="flex gap-2">
-                      <input
-                        type="hidden"
-                        name="taskId"
-                        value={task.id}
-                        className=""
-                      />
-                      <select name="status" defaultValue={task.status}>
-                        {Object.values(TaskStatus).map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                      <Button color="primary" size="sm" type="submit">
-                        Update
-                      </Button>
-                    </form>
-                  ) : (
-                    <p className="border rounded-sm p-1 bg-slate-100 text-sm">
-                      {task.status}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+                        <div className="flex items-center gap-2">
+                          {roomDetail?.owner?.id === user?.sub ||
+                          task?.user?.id === user?.sub ? (
+                            <form
+                              onSubmit={updateStatus}
+                              className="flex gap-2"
+                            >
+                              <input
+                                type="hidden"
+                                name="taskId"
+                                value={task.id}
+                              />
+                              <select
+                                name="status"
+                                defaultValue={task.status}
+                                className="border rounded-sm p-1 bg-white text-sm border-gray-300 px-2"
+                                onChange={(e) =>
+                                  onChangeSelectStatus(e, task.id)
+                                }
+                                value={statusUpdateTask[task.id] || task.status}
+                              >
+                                {Object.values(TaskStatus).map((status) => (
+                                  <option
+                                    key={status}
+                                    value={status}
+                                    selected={
+                                      statusUpdateTask[task.id] === status ||
+                                      task.status === status
+                                    }
+                                  >
+                                    {status}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button
+                                color="primary"
+                                size="sm"
+                                type="submit"
+                                className="bg-blue-500 text-white hover:bg-blue-600 disabled:bg-blue-200 disabled:cursor-not-allowed"
+                                disabled={
+                                  statusUpdateTask[task.id] === task.status ||
+                                  !statusUpdateTask[task.id]
+                                }
+                              >
+                                Update
+                              </Button>
+                            </form>
+                          ) : (
+                            <p className="border rounded-sm p-1 bg-slate-100 text-sm">
+                              {task.status}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </DraggableTask>
+                ))}
+              </TaskColumn>
+            );
+          })}
         </div>
       ) : (
         <div className="text-center w-[400px] border rounded-sm border-red-500 bg-red-200 mx-auto py-1">

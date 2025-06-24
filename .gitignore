@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-public/swEnv.js
-public/firebase-messaging-sw.js
+# public/swEnv.js
+# public/firebase-messaging-sw.js
 public/firebase-messaging-sw.map
 
 # dependencies

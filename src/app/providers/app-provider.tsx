@@ -149,7 +149,7 @@ export default function AppProvider({
       const cookieUser = await getAuthentication();
       console.log("cookieUser", cookieUser);
 
-      if (cookieUser) {
+      if (cookieUser && cookieUser?.access_token) {
         const decodedToken: any = jwtDecode(cookieUser?.access_token);
         if (decodedToken) {
           const newUser = {

@@ -143,7 +143,7 @@ export default function RoomsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col ">
+    <div className="h-full flex flex-col container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-4 flex justify-between items-center border rounded-md p-4 shadow-sm mt-10 bg-white">
         <Modal
           isOpen={isOpenJoinRoom}
