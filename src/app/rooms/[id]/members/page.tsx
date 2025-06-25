@@ -289,7 +289,7 @@ export default function RoomMemberPage() {
   }
 
   return (
-    <div className="h-full flex flex-col ">
+    <div className="h-full flex flex-col container mx-auto px-4">
       <div className="my-4 flex justify-between gap-4 border rounded-md p-4 shadow-sm bg-white">
         <div className="flex gap-2 justify-start">
           <Modal

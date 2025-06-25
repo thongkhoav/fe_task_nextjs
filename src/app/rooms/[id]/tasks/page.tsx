@@ -526,9 +526,9 @@ function RoomTasksPage() {
   }
 
   return (
-    <div className="h-full flex flex-col w-full">
-      <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white">
-        <div className="flex justify-start gap-2 container mx-auto">
+    <div className="h-full flex flex-col w-full mb-10">
+      <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white container mx-auto">
+        <div className="flex justify-start gap-2 ">
           <Modal
             isOpen={isOpenUpdateRoom}
             onOpenChange={onOpenUpdateRoom}
