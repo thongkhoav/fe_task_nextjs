@@ -5,10 +5,11 @@ import { useDrag } from "react-dnd";
 
 type Props = {
   item: Task;
+  canDrag?: boolean;
   children: React.ReactNode;
 };
 
-export default function DraggableTask({ item, children }: Props) {
+export default function DraggableTask({ item, children, canDrag }: Props) {
   const [{ isDragging }, dragRef] = useDrag({
     type: "TASK",
     item: { id: item.id, status: item.status },
@@ -20,11 +21,16 @@ export default function DraggableTask({ item, children }: Props) {
   return (
     <div
       ref={(node) => {
+        if (!canDrag) {
+          return;
+        }
         dragRef(node);
       }}
-      className={`${
-        isDragging ? "opacity-50" : ""
-      } cursor-move bg-white rounded-md p-2 shadow-md`}
+      className={`${isDragging ? "opacity-50" : ""} ${
+        canDrag ? "cursor-move" : ""
+      } 
+        bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md mb-2 
+      `}
     >
       {children}
     </div>

@@ -900,10 +900,19 @@ function RoomTasksPage() {
                 }}
               >
                 {tasksToShow.map((task: Task) => (
-                  <DraggableTask key={task?.id} item={task}>
+                  <DraggableTask
+                    key={task?.id}
+                    item={task}
+                    canDrag={
+                      roomDetail?.owner?.id === user?.sub ||
+                      task?.user?.id === user?.sub
+                    }
+                  >
                     <div
                       key={task.id}
-                      className="border rounded-md pr-2 pl-8 py-2 shadow-sm flex justify-between relative bg-white"
+                      className={` rounded-md pr-2 ${
+                        roomDetail?.owner?.id === user?.sub ? "pl-8" : ""
+                      } py-2 shadow-sm flex justify-between relativ`}
                     >
                       {user?.sub === roomDetail?.owner?.id && (
                         <button
