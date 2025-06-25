@@ -912,7 +912,7 @@ function RoomTasksPage() {
                       key={task.id}
                       className={` rounded-md pr-2 ${
                         roomDetail?.owner?.id === user?.sub ? "pl-8" : ""
-                      } py-2 shadow-sm flex justify-between relativ`}
+                      } py-2 flex justify-between relativ`}
                     >
                       {user?.sub === roomDetail?.owner?.id && (
                         <button
