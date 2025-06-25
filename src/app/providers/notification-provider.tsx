@@ -79,6 +79,10 @@ export default function NotificationProvider({
         const messaging = getMessaging();
         onMessage(messaging, async (payload) => {
           console.log("Message Received", payload);
+          if (!payload?.notification) {
+            console.warn("No notification payload found");
+            return;
+          }
           const { title, body } = payload?.notification;
           if (title && body) {
             payload?.notification?.body &&
