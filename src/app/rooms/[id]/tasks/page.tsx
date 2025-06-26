@@ -911,7 +911,7 @@ function RoomTasksPage() {
                     <div
                       key={task.id}
                       className={` rounded-md pr-2 ${
-                        roomDetail?.owner?.id === user?.sub ? "pl-8" : ""
+                        roomDetail?.owner?.id === user?.sub ? "pl-6" : ""
                       } py-2 flex justify-between relative`}
                     >
                       {user?.sub === roomDetail?.owner?.id && (
@@ -930,7 +930,7 @@ function RoomTasksPage() {
                             updateTaskForm.setValue("userId", task?.user?.id);
                             onOpenUpdateTask();
                           }}
-                          className="text-lg cursor-pointer absolute top-0 left-1"
+                          className="text-lg cursor-pointer absolute -top-1 -left-1"
                         >
                           <Settings />
                         </button>
@@ -1069,14 +1069,6 @@ function RoomTasksPage() {
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <h1 className="text-xl">{task.title}</h1>
-                            {/* Status badge */}
-                            <span
-                              className={`px-2 py-1 rounded-md text-sm ${
-                                TaskStatusBadgeColor[task.status]
-                              }`}
-                            >
-                              {task.status}
-                            </span>
                           </div>
                           <p className="flex items-center">
                             {task.user ? (
@@ -1099,10 +1091,7 @@ function RoomTasksPage() {
                               </p>
                             )}
                           </p>
-                          <p className="text-sm mt-4">
-                            <span className="font-bold"> Description: </span>
-                            {task.description}
-                          </p>
+                          <p className="text-sm mt-4">"{task.description}"</p>
                         </div>
                       </div>
                       <div className="flex flex-col justify-between items-end">
@@ -1127,7 +1116,7 @@ function RoomTasksPage() {
                               <select
                                 name="status"
                                 defaultValue={task.status}
-                                className="border rounded-sm p-1 bg-white text-sm border-gray-300 px-2"
+                                className="border rounded-sm p-1 bg-white text-xs border-gray-300"
                                 onChange={(e) =>
                                   onChangeSelectStatus(e, task.id)
                                 }

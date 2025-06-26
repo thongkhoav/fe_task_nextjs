@@ -29,7 +29,7 @@ export default function DraggableTask({ item, children, canDrag }: Props) {
       className={`${isDragging ? "opacity-50" : ""} ${
         canDrag ? "cursor-move" : ""
       } 
-        bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md mb-2 
+        bg-white dark:bg-gray-800 rounded-lg p-1 shadow-md mb-2 px-1 
       `}
     >
       {children}

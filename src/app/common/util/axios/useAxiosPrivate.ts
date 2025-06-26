@@ -20,6 +20,7 @@ const useAxiosPrivate = () => {
         //   config.headers["Authorization"] = `Bearer ${user?.accessToken}`;
         // }
         const tokens = await getAuthentication();
+        // console.log("Tokens from getAuthentication:", tokens);
         if (tokens) {
           const access_token = tokens.access_token;
           if (
@@ -46,17 +47,24 @@ const useAxiosPrivate = () => {
         const prevRequest = error?.config;
         // 500 expire
         // 401 user no longer exist
-        // if (
-        //   (error?.response?.status === 500 ||
-        //     error?.response?.status === 401) &&
-        //   !prevRequest?.sent
-        // ) {
-        //   prevRequest.sent = true;
+        console.log("Error response:", error);
+        if (
+          (error?.response?.status === 500 ||
+            error?.response?.status === 401) &&
+          !prevRequest?.sent
+        ) {
+          // prevRequest.sent = true;
 
-        //   const newAccessToken = await refresh();
-        //   prevRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
-        //   return axiosBase(prevRequest);
-        // }
+          // const newAccessToken = await refresh();
+          // prevRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+
+          // clear user and redirect to login page
+          console.log("Access token expired, redirecting to login page");
+          setUser(null);
+          deleteCookieAuthen();
+          router.push("/login");
+          router.refresh();
+        }
         return Promise.reject(error);
       }
     );
