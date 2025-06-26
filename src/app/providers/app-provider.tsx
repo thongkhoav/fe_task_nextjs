@@ -1,7 +1,7 @@
 "use client";
 
 import { loginApi, TokenPair } from "@/apiRequests/auth/login.api";
-import { NextUIProvider, Tooltip } from "@nextui-org/react";
+import { HeroUIProvider, Tooltip } from "@heroui/react";
 import { useCallback, useContext, useEffect, useState } from "react";
 
 import { createContext } from "react";
@@ -19,6 +19,7 @@ import { NotificationContent } from "../config/noti-toast-element";
 import { log } from "console";
 import NotificationProvider from "./notification-provider";
 import getAuthentication from "../(auth)/actions/get-authentication";
+import { socket } from "../socket/socket";
 
 export enum RoleType {
   ADMIN = "ADMIN",
@@ -145,6 +146,11 @@ export default function AppProvider({
     //     console.log("event for the service worker", event)
     //   );
     // }
+    socket.connect();
+    socket.on("connect", () => {
+      console.log("Socket connected:", socket.id);
+    });
+
     const effectFunc = async () => {
       const cookieUser = await getAuthentication();
       console.log("cookieUser", cookieUser);
@@ -176,7 +182,7 @@ export default function AppProvider({
 
   return (
     <ToastProvider>
-      <NextUIProvider>
+      <HeroUIProvider>
         <AppContext.Provider
           value={{
             user,
@@ -206,7 +212,7 @@ export default function AppProvider({
           )}
           <NotificationProvider>{children}</NotificationProvider>
         </AppContext.Provider>
-      </NextUIProvider>
+      </HeroUIProvider>
     </ToastProvider>
   );
 }

@@ -35,7 +35,7 @@ import {
   Popover,
   PopoverContent,
   Tooltip,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import {
   Form,
   FormControl,

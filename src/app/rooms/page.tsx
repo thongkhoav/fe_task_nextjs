@@ -29,7 +29,7 @@ import {
   useDisclosure,
   Button,
   Spinner,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import { useRouter } from "next/navigation";
 import { CircleUserRound, Crown, Mail } from "lucide-react";
 import { join } from "path";

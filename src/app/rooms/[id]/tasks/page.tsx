@@ -17,6 +17,8 @@ import {
   LogOut,
   Group,
 } from "lucide-react";
+import { format } from "date-fns";
+import { DateRangePicker } from "react-date-range";
 import { useAppContext } from "@/app/providers/app-provider";
 import { RoomDetail } from "@/apiRequests/room/room-detail.type";
 import useAxiosPrivate from "@/app/common/util/axios/useAxiosPrivate";
@@ -35,7 +37,7 @@ import {
   PopoverTrigger,
   PopoverContent,
   Tooltip,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import {
   Form,
   FormControl,
@@ -127,6 +129,12 @@ const updateRoomSchema = z.object({
   description: z.string().min(3).max(100),
 });
 
+const initialRange = {
+  startDate: new Date(),
+  endDate: new Date(),
+  key: "selection",
+};
+
 function RoomTasksPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -143,6 +151,12 @@ function RoomTasksPage() {
   const [statusUpdateTask, setStatusUpdateTask] = useState<
     Record<string, string>
   >({});
+  const [selectionRange, setSelectionRange] = useState(initialRange);
+  const [submitDateRange, setSubmitDateRange] = useState({
+    startDate: "",
+    endDate: "",
+  });
+  const [isDateRangePickerOpen, setIsDateRangePickerOpen] = useState(false);
 
   const axiosPrivate = useAxiosPrivate();
   const {
@@ -341,6 +355,8 @@ function RoomTasksPage() {
       }>("/task/room/" + id, {
         params: {
           userId: filterUserId || "",
+          startDate: submitDateRange.startDate || "",
+          endDate: submitDateRange.endDate || "",
         },
       });
       // console.log(res.data);
@@ -507,6 +523,70 @@ function RoomTasksPage() {
     console.log("Status update task:", statusUpdateTask);
   };
 
+  const handleSelectDateRange = async (ranges: any) => {
+    console.log("Selected date range:", ranges);
+    setSelectionRange(ranges.selection);
+  };
+
+  const handleFilterByDateRange = async () => {
+    const { startDate, endDate } = selectionRange;
+    setSubmitDateRange({
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    });
+
+    try {
+      const res = await axiosPrivate.get<{
+        data: Task[];
+      }>("/task/room/" + id, {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      });
+      setRoomTaskList(res.data.data);
+      setIsDateRangePickerOpen(false);
+    } catch (error) {
+      console.error("Failed to filter tasks by date range:", error);
+      ToastError("Failed to filter tasks by date range. Please try again.");
+    }
+  };
+
+  const handleResetFilterDateRange = async () => {
+    setSelectionRange(initialRange);
+    setSubmitDateRange({
+      startDate: "",
+      endDate: "",
+    });
+    setIsDateRangePickerOpen(false);
+    try {
+      const res = await axiosPrivate.get<{
+        data: Task[];
+      }>("/task/room/" + id, {
+        params: {
+          startDate: "",
+          endDate: "",
+        },
+      });
+      setRoomTaskList(res.data.data);
+    } catch (error) {
+      console.error("Failed to filter tasks by date range:", error);
+      ToastError("Failed to filter tasks by date range. Please try again.");
+    }
+  };
+
+  const handleCancelFilterDateRange = () => {
+    setIsDateRangePickerOpen(false);
+    // set selectionRange back to submitDateRange
+    setSelectionRange({
+      startDate: new Date(submitDateRange?.startDate || ""),
+      endDate: new Date(submitDateRange?.endDate || ""),
+      key: "selection",
+    });
+  };
+
+  // ** Render UI **
+
   if (loading) {
     return <Spinner />;
   }
@@ -535,7 +615,7 @@ function RoomTasksPage() {
             placement="center"
           >
             <ModalContent>
-              {(onClose) => (
+              {() => (
                 <Form {...updateRoomForm}>
                   <form
                     onSubmit={updateRoomForm.handleSubmit(onUpdateRoom)}
@@ -723,7 +803,7 @@ function RoomTasksPage() {
 
           <Modal isOpen={isOpenAddTask} onOpenChange={onOpenChangeAddTask}>
             <ModalContent>
-              {(onClose) => (
+              {() => (
                 <Form {...addTaskForm}>
                   <form
                     onSubmit={addTaskForm.handleSubmit(onAddTask)}
@@ -845,6 +925,63 @@ function RoomTasksPage() {
         </span>
       </div>
 
+      {/* Date range picker MODAL */}
+      <div
+        className="fixed top-[60px] left-1/2 -translate-x-1/2 z-[1000] bg-white p-4 shadow-md rounded-md"
+        style={{ display: isDateRangePickerOpen ? "block" : "none" }}
+      >
+        <DateRangePicker
+          ranges={[selectionRange]}
+          onChange={handleSelectDateRange}
+          rangeColors={["#3182ce"]}
+          moveRangeOnFirstSelection={false}
+          months={2}
+          direction="horizontal"
+        />
+        <div className="flex gap-4 justify-end">
+          {/* cancel button */}
+          <button
+            className="mt-2 px-3 py-1 text-sm bg-gray-300 hover:bg-gray-400 text-black rounded transition-colors"
+            onClick={handleCancelFilterDateRange}
+          >
+            Cancel
+          </button>
+          <button
+            className="mt-2 px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+            onClick={handleFilterByDateRange}
+          >
+            Filter
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center relative mb-5 gap-2">
+        <button
+          className="
+         px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors
+        "
+          onClick={() => setIsDateRangePickerOpen(!isDateRangePickerOpen)}
+        >
+          Filter by date
+        </button>
+        {submitDateRange.startDate && submitDateRange.endDate && (
+          <div className="flex gap-4 px-4 p-2 shadow-md rounded-md bg-white">
+            <span>
+              {format(new Date(submitDateRange.startDate), "dd MMMM, yyyy")} -{" "}
+              {format(new Date(submitDateRange.endDate), "dd MMMM, yyyy")}
+            </span>
+            <button
+              className="text-blue-500 hover:underline"
+              onClick={handleResetFilterDateRange}
+            >
+              Reset filter
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div></div>
+
       {loadingTasks ? (
         <div className="text-center">
           <Spinner />
@@ -941,7 +1078,7 @@ function RoomTasksPage() {
                         placement="top-center"
                       >
                         <ModalContent>
-                          {(onClose) => (
+                          {() => (
                             <Form {...updateTaskForm}>
                               <form
                                 onSubmit={updateTaskForm.handleSubmit(
@@ -1095,10 +1232,10 @@ function RoomTasksPage() {
                         </div>
                       </div>
                       <div className="flex flex-col justify-between items-end">
-                        <p className="flex items-center">
-                          <Calendar className="text-xl text-blue-500" />
+                        <p className="flex items-center gap-1 text-sm">
+                          <Calendar className="text-blue-500" size={16} />
                           <span>
-                            {new Date(task.dueDate).toLocaleDateString()}
+                            {format(new Date(task.dueDate), "MMMM dd, yyyy")}
                           </span>
                         </p>
                         <div className="flex items-center gap-2">

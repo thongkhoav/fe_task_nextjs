@@ -16,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Tooltip,
-} from "@nextui-org/react";
+} from "@heroui/react";
 import Link from "next/link";
 
 type Notification = {
