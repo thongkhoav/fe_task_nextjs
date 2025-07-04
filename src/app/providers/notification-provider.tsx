@@ -65,8 +65,6 @@ export default function NotificationProvider({
 
         await axiosPrivate.patch("/notification/update-fcm-token", {
           fcmToken: token,
-          userId: user?.sub,
-          refreshToken: tokens?.refresh_token,
         });
         console.log("FCM Token sent to server");
       })
@@ -143,6 +141,7 @@ export default function NotificationProvider({
 
   useEffect(() => {
     console.log("User in noti:", user);
+    if (!user) return;
 
     setUpFirebaseMessaging();
   }, [user]);

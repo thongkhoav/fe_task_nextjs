@@ -82,11 +82,13 @@ export default function AppProvider({
           fullName: decodedToken.fullName,
           role: decodedToken.role,
         };
+        setTokens(tokens);
         setUserState(user);
         return;
       }
     }
     // localStorage.removeItem("task_user");
+    setTokens(null);
     setUserState(null);
   }, []);
   const handleLogin = async (email: string, password: string) => {
@@ -108,7 +110,7 @@ export default function AppProvider({
 
         setTokens(data);
         setUserState(newUser);
-        setCookieLocal(data);
+        // setCookieLocal(data);
       } else {
         setUserState(null);
       }
@@ -122,13 +124,13 @@ export default function AppProvider({
       if (tokens) {
         await axiosPrivate.post("/auth/logout", tokens);
         setUserState(null);
+        setTokens(null);
         clearCookieLocal();
 
         await firebaseCloudMessaging.deleteToken();
 
         ToastSuccess("Sign out success");
         router.push("/login");
-        router.refresh();
       }
     } catch (error: any) {
       console.log(error);

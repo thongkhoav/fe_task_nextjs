@@ -47,7 +47,7 @@ export default function Login() {
       router.push("/rooms");
       router.refresh();
     } catch (error: any) {
-      ToastError(error.response.data.message);
+      ToastError(error?.response?.data?.message || "Login failed");
     }
     setLoadingLogin(false);
   }

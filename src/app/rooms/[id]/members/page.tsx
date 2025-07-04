@@ -120,7 +120,7 @@ export default function RoomMemberPage() {
   useEffect(() => {
     console.log(user);
 
-    if (id) {
+    if (id && user) {
       loadMembers();
       loadRoom();
     }

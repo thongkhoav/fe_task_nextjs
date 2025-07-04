@@ -93,17 +93,23 @@ export default function RoomsPage() {
 
   useEffect(() => {
     console.log(user);
-
+    if (!user) return;
     fetchRooms();
   }, [user]);
 
   const fetchRooms = async () => {
-    setLoadingRooms(true);
-    const response = await axiosPrivate.get("/room");
-    console.log(response.data.data);
+    try {
+      setLoadingRooms(true);
+      const response = await axiosPrivate.get("/room");
+      console.log("load rooms", response);
 
-    setRooms(response.data.data);
-    setLoadingRooms(false);
+      setRooms(response.data.data);
+      setLoadingRooms(false);
+    } catch (error) {
+      setLoadingRooms(false);
+      console.error("Failed to fetch rooms:", error);
+      ToastError("Failed to fetch rooms");
+    }
   };
 
   async function onAddRoom(values: z.infer<typeof formSchema>) {

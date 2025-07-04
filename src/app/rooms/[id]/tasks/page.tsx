@@ -213,6 +213,7 @@ function RoomTasksPage() {
 
   useEffect(() => {
     // console.log(user);
+    if (!user) return;
 
     const fetchData = async () => {
       if (!id) return;
@@ -1253,7 +1254,7 @@ function RoomTasksPage() {
                               <select
                                 name="status"
                                 defaultValue={task.status}
-                                className="border rounded-sm p-1 bg-white text-xs border-gray-300"
+                                className="border rounded-sm p-1 bg-white text-[12px] border-gray-300"
                                 onChange={(e) =>
                                   onChangeSelectStatus(e, task.id)
                                 }
@@ -1286,7 +1287,7 @@ function RoomTasksPage() {
                               </Button>
                             </form>
                           ) : (
-                            <p className="border rounded-sm p-1 bg-slate-100 text-sm">
+                            <p className="border rounded-sm p-1 bg-slate-100 text-[12px]">
                               {task.status}
                             </p>
                           )}

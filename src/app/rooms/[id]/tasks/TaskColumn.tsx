@@ -32,7 +32,9 @@ export default function TaskColumn({
       }}
       className="flex flex-col p-4 bg-gray-100 rounded-md shadow-md flex-1 gap-2"
     >
-      <h2 className={`text-lg font-semibold mb-2 ${badgeColor}`}>
+      <h2
+        className={`text-lg font-semibold mb-2 ${badgeColor} px-2 py-1 rounded`}
+      >
         {status} ({tasks.length})
       </h2>
       {tasks.length === 0 && (
