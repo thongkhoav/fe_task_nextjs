@@ -5,7 +5,7 @@ export interface CreateRoomDto {
   description: string;
 }
 
-export const loginApi = async (
+export const createRoomApi = async (
   axiosPrivate: AxiosInstance,
   dto: CreateRoomDto
 ) => {

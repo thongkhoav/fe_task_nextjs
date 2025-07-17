@@ -1,5 +1,4 @@
 import { axiosBase } from "@/app/common/util/axios/axiosBase";
-import { AxiosInstance } from "axios";
 export interface TokenPair {
   access_token: string;
   refresh_token: string;

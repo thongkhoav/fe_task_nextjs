@@ -2,7 +2,7 @@
 
 import { loginApi, TokenPair } from "@/apiRequests/auth/login.api";
 import { HeroUIProvider, Tooltip } from "@heroui/react";
-import { useCallback, useContext, useEffect, useState } from "react";
+import { use, useCallback, useContext, useEffect, useState } from "react";
 
 import { createContext } from "react";
 import { jwtDecode } from "jwt-decode";
@@ -20,6 +20,7 @@ import { log } from "console";
 import NotificationProvider from "./notification-provider";
 import getAuthentication from "../(auth)/actions/get-authentication";
 import { socket } from "../socket/socket";
+import axios from "axios";
 
 export enum RoleType {
   ADMIN = "ADMIN",
@@ -91,38 +92,48 @@ export default function AppProvider({
     setTokens(null);
     setUserState(null);
   }, []);
-  const handleLogin = async (email: string, password: string) => {
-    if (!email || !password) return;
 
-    const response = await loginApi(email, password);
-    if (response) {
-      const { data } = response;
-      const decodedToken: any = jwtDecode(data?.access_token);
-      if (decodedToken) {
-        const newUser = {
-          sub: decodedToken.sub,
-          email: decodedToken.email,
-          fullName: decodedToken.fullName,
-          role: decodedToken.role,
-        };
-        // localStorage.setItem("task_user", JSON.stringify(data));
-        console.log(newUser);
+  const handleLogin = useCallback(
+    async (email: string, password: string) => {
+      if (!email || !password) return;
 
-        setTokens(data);
-        setUserState(newUser);
-        // setCookieLocal(data);
-      } else {
-        setUserState(null);
+      const response = await loginApi(email, password);
+      console.log({
+        type: "handleLogin",
+        response,
+      });
+      if (response) {
+        const { data } = response;
+        const decodedToken: any = jwtDecode(data?.access_token);
+        if (decodedToken) {
+          const newUser = {
+            sub: decodedToken.sub,
+            email: decodedToken.email,
+            fullName: decodedToken.fullName,
+            role: decodedToken.role,
+          };
+          // localStorage.setItem("task_user", JSON.stringify(data));
+          console.log(newUser);
+
+          setTokens(data);
+          setUserState(newUser);
+          // setCookieLocal(data);
+        } else {
+          setUserState(null);
+        }
       }
-    }
-  };
+    },
+    [setUser]
+  );
 
   const handleLogout = async () => {
     try {
       // const task_user = localStorage.getItem("task_user");
       // const tokens = task_user ? JSON.parse(task_user) : null;
       if (tokens) {
-        await axiosPrivate.post("/auth/logout", tokens);
+        await axiosPrivate.post("/auth/logout", {
+          fcmToken: await firebaseCloudMessaging?.tokenInlocalStorage(),
+        });
         setUserState(null);
         setTokens(null);
         clearCookieLocal();

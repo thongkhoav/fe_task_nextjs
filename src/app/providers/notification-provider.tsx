@@ -1,5 +1,5 @@
 "use client";
-import { use, useContext, useEffect, useState } from "react";
+import { use, useCallback, useContext, useEffect, useState } from "react";
 import useAxiosPrivate from "../common/util/axios/useAxiosPrivate";
 import { createContext } from "react";
 import { useAppContext } from "./app-provider";
@@ -51,9 +51,15 @@ export default function NotificationProvider({
 }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notReadNotifications, setNotReadNotifications] = useState<number>(0);
+  const [fcmToken, setFcmToken] = useState<string | null>();
   const axiosPrivate = useAxiosPrivate();
   const { user, tokens } = useAppContext();
-  const setUpFirebaseMessaging = async () => {
+  const setUpFirebaseMessaging = useCallback(async () => {
+    console.log({
+      type: "setUpFirebaseMessaging",
+      user,
+      tokens,
+    });
     if (!user?.sub || !tokens?.refresh_token) return;
     await getNotifications();
 
@@ -61,6 +67,7 @@ export default function NotificationProvider({
       .init()
       .then(async (token) => {
         console.log("FCM Token:", token);
+        setFcmToken(token);
         // Send this token to your server if needed
 
         await axiosPrivate.patch("/notification/update-fcm-token", {
@@ -94,7 +101,7 @@ export default function NotificationProvider({
         return null;
       }
     }
-  };
+  }, [user, tokens]);
 
   const markNotificationAsRead = async (
     notificationId: string,
