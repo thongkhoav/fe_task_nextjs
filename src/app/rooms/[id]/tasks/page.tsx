@@ -18,6 +18,7 @@ import {
   Group,
 } from "lucide-react";
 import { format } from "date-fns";
+import { now, getLocalTimeZone } from "@internationalized/date";
 import { DateRangePicker } from "react-date-range";
 import { useAppContext } from "@/app/providers/app-provider";
 import { RoomDetail } from "@/apiRequests/room/room-detail.type";
@@ -38,6 +39,7 @@ import {
   PopoverContent,
   Tooltip,
 } from "@heroui/react";
+import { DatePicker } from "@heroui/date-picker";
 import {
   Form,
   FormControl,
@@ -107,9 +109,7 @@ const TaskStatusBadgeColor: Record<TaskStatus, string> = {
 const addTaskSchema = z.object({
   title: z.string().min(2).max(30),
   description: z.string().min(6).max(100),
-  dueDate: z.string().refine((value) => {
-    return new Date(value).getTime() > Date.now();
-  }, "Due date must be in the future"),
+  dueDate: z.string(),
   userId: z.string().optional(),
 });
 
@@ -118,6 +118,7 @@ const updateTaskSchema = z.object({
   title: z.string().min(2).max(30),
   description: z.string().min(6).max(100),
   dueDate: z.string().refine((value) => {
+    console.log(new Date(value).getTime(), Date.now());
     return new Date(value).getTime() > Date.now();
   }, "Due date must be in the future"),
   userId: z.string().optional(),
@@ -470,18 +471,18 @@ function RoomTasksPage() {
     try {
       console.log("Add task:", values);
 
-      await axiosPrivate.post("/task", {
-        title: values.title,
-        description: values.description,
-        dueDate: new Date(values.dueDate).toISOString(),
-        userId: values.userId,
-        roomId: id,
-      });
+      // await axiosPrivate.post("/task", {
+      //   title: values.title,
+      //   description: values.description,
+      //   dueDate: new Date(values.dueDate).toISOString(),
+      //   userId: values.userId,
+      //   roomId: id,
+      // });
       // fetchRooms();
 
-      onCloseAddTask();
-      addTaskForm.reset();
-      await loadRoomTasks();
+      // onCloseAddTask();
+      // addTaskForm.reset();
+      // await loadRoomTasks();
       ToastSuccess("Task added");
     } catch (error) {
       ToastError("Create room failed");
@@ -580,8 +581,12 @@ function RoomTasksPage() {
     setIsDateRangePickerOpen(false);
     // set selectionRange back to submitDateRange
     setSelectionRange({
-      startDate: new Date(submitDateRange?.startDate || ""),
-      endDate: new Date(submitDateRange?.endDate || ""),
+      startDate: submitDateRange?.startDate
+        ? new Date(submitDateRange?.startDate)
+        : initialRange.startDate,
+      endDate: submitDateRange?.endDate
+        ? new Date(submitDateRange?.endDate)
+        : initialRange.endDate,
       key: "selection",
     });
   };
@@ -847,17 +852,39 @@ function RoomTasksPage() {
                         control={addTaskForm.control}
                         name="dueDate"
                         render={({ field }) => {
-                          const tomorrow = new Date(today);
-                          tomorrow.setDate(tomorrow.getDate() + 1);
+                          // const tomorrow = new Date(today);
+                          // tomorrow.setDate(tomorrow.getDate() + 1);
                           return (
                             <FormItem>
                               <FormLabel>Due date</FormLabel>
                               <FormControl>
-                                <Input
+                                <DatePicker
+                                  hideTimeZone
+                                  showMonthAndYearPickers
+                                  variant="bordered"
+                                  defaultValue={now(getLocalTimeZone()).add({
+                                    minutes: 30,
+                                  })}
+                                  minValue={now(getLocalTimeZone())}
+                                  className="w-full"
+                                  aria-label="Select due date"
+                                  onChange={(date) => {
+                                    if (!date) return;
+                                    field.onChange(date.toString());
+                                    console.log("Selected date:", date);
+                                    // set field value to date string
+                                    field.value = date.toString();
+                                    console.log(
+                                      "Field value set to:",
+                                      field.value
+                                    );
+                                  }}
+                                />
+                                {/* <Input
                                   type="date"
                                   min={tomorrow.toISOString().split("T")[0]}
                                   {...field}
-                                />
+                                /> */}
                               </FormControl>
                               <FormMessage />
                             </FormItem>

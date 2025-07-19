@@ -27,7 +27,8 @@ const vapidKey = process.env.NEXT_PUBLIC_VAPID_KEY;
 
 // Initialize Firebase
 
-const LocalStorageFcmKey = "task_app_fcm_token";
+const LocalStorageFcmKey =
+  process.env.LOCAL_STORAGE_FCM_KEY || "task_app_fcm_token";
 
 export const firebaseCloudMessaging = {
   tokenInlocalStorage: async () => {
