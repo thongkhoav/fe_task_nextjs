@@ -11,3 +11,16 @@ export const loginApi = async (email: string, password: string) => {
     password,
   });
 };
+
+export const forgotPasswordApi = async (email: string) => {
+  return await axiosBase.post("/auth/forgot-password", {
+    email,
+  });
+};
+
+export const resetPasswordApi = async (token: string, password: string) => {
+  return await axiosBase.post("/auth/reset-password", {
+    token,
+    password,
+  });
+};

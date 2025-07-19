@@ -1,0 +1,103 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { set, useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useAppContext } from "@/app/providers/app-provider";
+import { ToastError, ToastSuccess } from "@/app/common/util/toast";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import Link from "next/link";
+
+export default function ResetPassword() {
+  const [isSending, setIsSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+
+  const emailForm = useForm({
+    resolver: zodResolver(
+      z.object({
+        email: z.string().email("Invalid email address"),
+      })
+    ),
+    defaultValues: {
+      email: "",
+    },
+  });
+
+  async function onSubmitSendMail(values: { email: string }) {
+    try {
+      // Simulate sending reset link
+      setIsSending(true);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      ToastSuccess("Reset link sent to your email");
+      // Interval 30s before allowing another request
+      // setTimeout(() => {
+      //   setEmailSent(false);
+      // }, 30000);
+      setEmailSent(true);
+    } catch (error: any) {
+      ToastError(error?.response?.data?.message || "An error occurred");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return (
+    <div className=" h-screen flex items-center justify-center">
+      <div className="min-w-[400px] p-5 rounded-md border border-gray-200 shadow-md bg-white">
+        <Form {...emailForm}>
+          <form
+            onSubmit={emailForm.handleSubmit(onSubmitSendMail)}
+            className="space-y-8"
+          >
+            <FormDescription>
+              <span className="block text-2xl font-bold text-center">
+                Forgot password
+              </span>
+            </FormDescription>
+
+            <FormField
+              control={emailForm.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="Input your email..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" disabled={isSending} className="w-full">
+              Send reset link
+            </Button>
+          </form>
+        </Form>
+
+        <Link
+          href="/login"
+          className="block mt-5 w-full text-center underline cursor-pointer"
+        >
+          Login
+        </Link>
+      </div>
+    </div>
+  );
+}
