@@ -18,7 +18,7 @@ import {
   Group,
 } from "lucide-react";
 import { format } from "date-fns";
-import { now, getLocalTimeZone } from "@internationalized/date";
+import { now, getLocalTimeZone, fromDate } from "@internationalized/date";
 import { DateRangePicker } from "react-date-range";
 import { useAppContext } from "@/app/providers/app-provider";
 import { RoomDetail } from "@/apiRequests/room/room-detail.type";
@@ -109,7 +109,10 @@ const TaskStatusBadgeColor: Record<TaskStatus, string> = {
 const addTaskSchema = z.object({
   title: z.string().min(2).max(30),
   description: z.string().min(6).max(100),
-  dueDate: z.string(),
+  dueDate: z.string().refine((value) => {
+    console.log(new Date(value).getTime(), Date.now());
+    return new Date(value).getTime() > new Date().getTime() + 30 * 60 * 1000; // Must be at least 30 minutes from now
+  }, "create Due date must be in the future"),
   userId: z.string().optional(),
 });
 
@@ -117,10 +120,7 @@ const updateTaskSchema = z.object({
   taskId: z.string(),
   title: z.string().min(2).max(30),
   description: z.string().min(6).max(100),
-  dueDate: z.string().refine((value) => {
-    console.log(new Date(value).getTime(), Date.now());
-    return new Date(value).getTime() > Date.now();
-  }, "Due date must be in the future"),
+  dueDate: z.string(),
   userId: z.string().optional(),
 });
 
@@ -148,6 +148,9 @@ function RoomTasksPage() {
   const [todoTasks, setTodoTasks] = useState<Task[]>([]);
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
   const [doneTasks, setDoneTasks] = useState<Task[]>([]);
+  const [selectedUpdateTask, setSelectedUpdateTask] = useState<Task | null>(
+    null
+  );
   // key is taskId, value is status
   const [statusUpdateTask, setStatusUpdateTask] = useState<
     Record<string, string>
@@ -374,11 +377,23 @@ function RoomTasksPage() {
   async function onEditTask(values: z.infer<typeof updateTaskSchema>) {
     try {
       console.log("editTask task:", values);
+      if (!selectedUpdateTask) return;
+
+      // if dueDate is changed, check if it is at least 30 minutes from now
+      if (
+        new Date(selectedUpdateTask?.dueDate).getTime() !==
+          new Date(values.dueDate).getTime() &&
+        new Date(values.dueDate).getTime() <=
+          new Date().getTime() + 30 * 60 * 1000
+      ) {
+        ToastError("Due date must be at least 30 minutes from now");
+        return;
+      }
       await axiosPrivate.patch("/task/" + values.taskId + "/update-task-info", {
         title: values.title,
         description: values.description,
         dueDate: new Date(values.dueDate).toISOString(),
-        userId: values.userId,
+        userId: values?.userId || "",
       });
       await loadRoomTasks();
       onCloseUpdateTask();
@@ -388,6 +403,21 @@ function RoomTasksPage() {
       ToastError(error.response?.data?.message || "Update task failed");
     }
   }
+
+  const onOpenUpdateTaskWithValues = (task: Task) => {
+    updateTaskForm.setValue("taskId", task.id);
+    updateTaskForm.setValue("title", task.title);
+    updateTaskForm.setValue("description", task.description);
+    updateTaskForm.setValue(
+      "dueDate",
+      task?.dueDate
+        ? task?.dueDate
+        : new Date(new Date().getTime() + 30 * 60 * 1000).toISOString()
+    );
+    updateTaskForm.setValue("userId", task?.user?.id);
+    setSelectedUpdateTask(task);
+    onOpenUpdateTask();
+  };
 
   const updateStatus = async (e: any) => {
     try {
@@ -471,18 +501,17 @@ function RoomTasksPage() {
     try {
       console.log("Add task:", values);
 
-      // await axiosPrivate.post("/task", {
-      //   title: values.title,
-      //   description: values.description,
-      //   dueDate: new Date(values.dueDate).toISOString(),
-      //   userId: values.userId,
-      //   roomId: id,
-      // });
-      // fetchRooms();
+      await axiosPrivate.post("/task", {
+        title: values.title,
+        description: values.description,
+        dueDate: new Date(values.dueDate).toISOString(),
+        userId: values.userId,
+        roomId: id,
+      });
 
-      // onCloseAddTask();
-      // addTaskForm.reset();
-      // await loadRoomTasks();
+      onCloseAddTask();
+      addTaskForm.reset();
+      await loadRoomTasks();
       ToastSuccess("Task added");
     } catch (error) {
       ToastError("Create room failed");
@@ -856,7 +885,12 @@ function RoomTasksPage() {
                           // tomorrow.setDate(tomorrow.getDate() + 1);
                           return (
                             <FormItem>
-                              <FormLabel>Due date</FormLabel>
+                              <FormLabel>
+                                Due date
+                                <span className="text-xs text-gray-500">
+                                  (must be at least 30 minutes from now)
+                                </span>
+                              </FormLabel>
                               <FormControl>
                                 <DatePicker
                                   hideTimeZone
@@ -865,19 +899,16 @@ function RoomTasksPage() {
                                   defaultValue={now(getLocalTimeZone()).add({
                                     minutes: 30,
                                   })}
-                                  minValue={now(getLocalTimeZone())}
+                                  minValue={now(getLocalTimeZone()).add({
+                                    minutes: 30,
+                                  })}
                                   className="w-full"
                                   aria-label="Select due date"
                                   onChange={(date) => {
                                     if (!date) return;
-                                    field.onChange(date.toString());
-                                    console.log("Selected date:", date);
+                                    field.onChange(date.toDate().toISOString());
                                     // set field value to date string
-                                    field.value = date.toString();
-                                    console.log(
-                                      "Field value set to:",
-                                      field.value
-                                    );
+                                    field.value = date.toDate().toISOString();
                                   }}
                                 />
                                 {/* <Input
@@ -1081,20 +1112,7 @@ function RoomTasksPage() {
                     >
                       {user?.sub === roomDetail?.owner?.id && (
                         <button
-                          onClick={() => {
-                            updateTaskForm.setValue("taskId", task.id);
-                            updateTaskForm.setValue("title", task.title);
-                            updateTaskForm.setValue(
-                              "description",
-                              task.description
-                            );
-                            updateTaskForm.setValue(
-                              "dueDate",
-                              task.dueDate.split("T")[0]
-                            );
-                            updateTaskForm.setValue("userId", task?.user?.id);
-                            onOpenUpdateTask();
-                          }}
+                          onClick={() => onOpenUpdateTaskWithValues(task)}
                           className="text-lg cursor-pointer absolute -top-1 -left-1"
                         >
                           <Settings />
@@ -1154,21 +1172,47 @@ function RoomTasksPage() {
                                     control={updateTaskForm.control}
                                     name="dueDate"
                                     render={({ field }) => {
-                                      const tomorrow = new Date(today);
-                                      tomorrow.setDate(tomorrow.getDate() + 1);
                                       return (
                                         <FormItem>
-                                          <FormLabel>Due date</FormLabel>
+                                          <FormLabel>
+                                            Due date
+                                            <span className="text-xs text-gray-500">
+                                              (must be at least 30 minutes from
+                                              now)
+                                            </span>
+                                          </FormLabel>
                                           <FormControl>
-                                            <Input
-                                              {...field}
-                                              type="date"
-                                              min={
-                                                tomorrow
-                                                  .toISOString()
-                                                  .split("T")[0]
-                                              }
+                                            <DatePicker
+                                              hideTimeZone
+                                              showMonthAndYearPickers
+                                              variant="bordered"
+                                              defaultValue={fromDate(
+                                                new Date(field.value),
+                                                getLocalTimeZone()
+                                              )}
+                                              className="w-full"
+                                              aria-label="Select due date"
+                                              onChange={(date) => {
+                                                if (!date) return;
+                                                field.onChange(
+                                                  date.toDate().toISOString()
+                                                );
+                                                // set field value to date string
+                                                field.value = date
+                                                  .toDate()
+                                                  .toISOString();
+                                                console.log(
+                                                  "Selected due date:",
+                                                  field.value,
+                                                  field
+                                                );
+                                              }}
                                             />
+                                            {/* <Input
+                                  type="date"
+                                  min={tomorrow.toISOString().split("T")[0]}
+                                  {...field}
+                                /> */}
                                           </FormControl>
                                           <FormMessage />
                                         </FormItem>
@@ -1263,7 +1307,10 @@ function RoomTasksPage() {
                         <p className="flex items-center gap-1 text-sm">
                           <Calendar className="text-blue-500" size={16} />
                           <span>
-                            {format(new Date(task.dueDate), "MMMM dd, yyyy")}
+                            {format(
+                              new Date(task.dueDate),
+                              "MMMM dd, yyyy HH:mm"
+                            )}
                           </span>
                         </p>
                         <div className="flex items-center gap-2">
