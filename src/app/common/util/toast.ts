@@ -23,7 +23,13 @@ export const ToastInfo = (
   autoClose: number = 3000
 ) => {
   toast.info(message, {
+    position: "top-center",
     autoClose,
+    pauseOnFocusLoss: true,
+    pauseOnHover: true,
+    style: {
+      minWidth: "500px",
+    },
   });
 };
 
