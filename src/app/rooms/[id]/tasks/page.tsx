@@ -64,6 +64,7 @@ import { Style } from "@/app/common/util/style";
 import { socket } from "@/app/socket/socket";
 import DraggableTask from "./DraggableTask";
 import TaskColumn from "./TaskColumn";
+import { timeBeforeDeadline } from "@/lib/utils";
 
 export interface Task {
   id: string;
@@ -111,7 +112,9 @@ const addTaskSchema = z.object({
   description: z.string().min(6).max(100),
   dueDate: z.string().refine((value) => {
     console.log(new Date(value).getTime(), Date.now());
-    return new Date(value).getTime() > new Date().getTime() + 30 * 60 * 1000; // Must be at least 30 minutes from now
+    return (
+      new Date(value).getTime() > new Date().getTime() + timeBeforeDeadline
+    ); // Must be at least 30 minutes from now
   }, "create Due date must be in the future"),
   userId: z.string().optional(),
 });
@@ -412,7 +415,7 @@ function RoomTasksPage() {
       "dueDate",
       task?.dueDate
         ? task?.dueDate
-        : new Date(new Date().getTime() + 30 * 60 * 1000).toISOString()
+        : new Date(new Date().getTime() + timeBeforeDeadline).toISOString()
     );
     updateTaskForm.setValue("userId", task?.user?.id);
     setSelectedUpdateTask(task);

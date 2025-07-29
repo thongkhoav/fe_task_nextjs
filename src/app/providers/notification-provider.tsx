@@ -67,6 +67,7 @@ export default function NotificationProvider({
       .init()
       .then(async (token) => {
         console.log("FCM Token:", token);
+        if (!token) return;
         setFcmToken(token);
         // Send this token to your server if needed
 
@@ -90,6 +91,7 @@ export default function NotificationProvider({
           }
           const { title, body } = payload?.notification;
           if (title && body) {
+            console.log("received notification", { title, body });
             payload?.notification?.body &&
               ToastInfo(NotificationContent(title, body), 6000);
           }
