@@ -17,9 +17,9 @@ export const forgotPasswordApi = async (email: string) => {
   });
 };
 
-export const resetPasswordApi = async (token: string, password: string) => {
+export const resetPasswordApi = async (token: string, newPassword: string) => {
   return await axiosBase.post("/auth/reset-password", {
     token,
-    password,
+    newPassword,
   });
 };
