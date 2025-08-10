@@ -108,7 +108,7 @@ export default function Login() {
           Sign up
         </Link>
         <Link
-          href="/reset-password"
+          href="/forgot-password"
           className="block mt-5 w-full text-center underline cursor-pointer"
         >
           Forgot password?

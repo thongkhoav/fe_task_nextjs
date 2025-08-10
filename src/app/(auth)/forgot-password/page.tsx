@@ -20,6 +20,8 @@ import { ToastError, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
+import { axiosBase } from "@/app/common/util";
+import { forgotPasswordApi } from "@/apiRequests/auth/login.api";
 
 export default function ResetPassword() {
   const [isSending, setIsSending] = useState(false);
@@ -40,12 +42,9 @@ export default function ResetPassword() {
     try {
       // Simulate sending reset link
       setIsSending(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await forgotPasswordApi(values.email);
       ToastSuccess("Reset link sent to your email");
-      // Interval 30s before allowing another request
-      // setTimeout(() => {
-      //   setEmailSent(false);
-      // }, 30000);
+
       setEmailSent(true);
     } catch (error: any) {
       ToastError(error?.response?.data?.message || "An error occurred");
@@ -85,8 +84,12 @@ export default function ResetPassword() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={isSending} className="w-full">
-              Send reset link
+            <Button
+              type="submit"
+              disabled={isSending}
+              className={`w-full ${emailSent && "bg-teal-700"}`}
+            >
+              {emailSent ? "Resend" : "Send reset link"}
             </Button>
           </form>
         </Form>
