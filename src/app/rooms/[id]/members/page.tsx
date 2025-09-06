@@ -541,6 +541,11 @@ export default function RoomMemberPage() {
               Tasks
             </Button>
           </Link>
+          <Link href={`/rooms/${id}/chat`} passHref>
+            <Button className="bg-purple-500 text-white hover:bg-purple-600 w-full">
+              Chat
+            </Button>
+          </Link>
         </div>
       </div>
 
