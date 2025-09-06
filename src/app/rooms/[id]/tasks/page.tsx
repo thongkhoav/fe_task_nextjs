@@ -382,16 +382,17 @@ function RoomTasksPage() {
       console.log("editTask task:", values);
       if (!selectedUpdateTask) return;
 
+      // Updated: User can change task info without changing due date
       // if dueDate is changed, check if it is at least 30 minutes from now
-      if (
-        new Date(selectedUpdateTask?.dueDate).getTime() !==
-          new Date(values.dueDate).getTime() &&
-        new Date(values.dueDate).getTime() <=
-          new Date().getTime() + 30 * 60 * 1000
-      ) {
-        ToastError("Due date must be at least 30 minutes from now");
-        return;
-      }
+      // if (
+      //   new Date(selectedUpdateTask?.dueDate).getTime() !==
+      //     new Date(values.dueDate).getTime() &&
+      //   new Date(values.dueDate).getTime() <=
+      //     new Date().getTime() + 30 * 60 * 1000
+      // ) {
+      //   ToastError("Due date must be at least 30 minutes from now");
+      //   return;
+      // }
       await axiosPrivate.patch("/task/" + values.taskId + "/update-task-info", {
         title: values.title,
         description: values.description,
@@ -1317,7 +1318,7 @@ function RoomTasksPage() {
                           <span>
                             {format(
                               new Date(task.dueDate),
-                              "MMMM dd, yyyy HH:mm"
+                              "MMM dd, yyyy hh:mm a"
                             )}
                           </span>
                         </p>
