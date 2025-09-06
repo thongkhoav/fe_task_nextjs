@@ -47,8 +47,8 @@ export default function ChatPage() {
         className="flex-1 overflow-y-auto bg-slate-100 p-4 rounded-lg"
         id="message-list"
       >
-        {messages.map((m, i) => {
-          const currentDate = new Date(m.createdAt);
+        {messages.map((message, i) => {
+          const currentDate = new Date(message.createdAt);
 
           // check if previous message has the same date
           const prevMessage = i > 0 ? messages[i - 1] : null;
@@ -67,15 +67,12 @@ export default function ChatPage() {
 
               <div
                 className={`mb-2 p-2 rounded-lg w-2/5 ${
-                  m?.sender.id === user?.sub && "ml-auto"
+                  message?.sender.id === user?.sub && "ml-auto"
                 }`}
               >
                 <div className="flex items-center gap-1 mb-1">
-                  {" "}
-                  {m?.sender.id !== user?.sub ? (
-                    <b>{m.sender?.fullName || "Unknown"}</b>
-                  ) : (
-                    <b>You</b>
+                  {message?.sender.id !== user?.sub && (
+                    <b>{message.sender?.fullName || "Unknown"}</b>
                   )}
                   <span className="text-sm text-gray-500">
                     {format(currentDate, "HH:mm")}
@@ -83,10 +80,12 @@ export default function ChatPage() {
                 </div>
                 <p
                   className={`${
-                    m?.sender.id === user?.sub ? "bg-blue-100" : "bg-slate-200"
+                    message?.sender.id === user?.sub
+                      ? "bg-blue-100"
+                      : "bg-slate-200"
                   } p-2 rounded-md`}
                 >
-                  {m.content}
+                  {message.content}
                 </p>
               </div>
             </div>

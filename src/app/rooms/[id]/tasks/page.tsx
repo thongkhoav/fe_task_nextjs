@@ -7,7 +7,7 @@ import {
   Settings,
   CircleUserRound,
   Calendar,
-  ChevronLeft,
+  ChevronRight,
   CircleChevronLeft,
   Copy,
   Crown,
@@ -184,6 +184,13 @@ function RoomTasksPage() {
     onClose: onCloseUpdateRoom,
     onOpenChange: onOpenChangeUpdateRoom,
   } = useDisclosure();
+  const {
+    isOpen: isOpenTaskDetail,
+    onOpen: onOpenTaskDetail,
+    onClose: onCloseTaskDetail,
+    onOpenChange: onOpenChangeTaskDetail,
+  } = useDisclosure();
+  const [modalTaskDetail, setModalTaskDetail] = useState<Task | null>(null);
 
   const addTaskForm = useForm<z.infer<typeof addTaskSchema>>({
     resolver: zodResolver(addTaskSchema),
@@ -624,6 +631,11 @@ function RoomTasksPage() {
     });
   };
 
+  const handleOpenTaskDetailModal = (task: Task) => {
+    setModalTaskDetail(task);
+    onOpenTaskDetail();
+  };
+
   // ** Render UI **
 
   if (loading) {
@@ -648,6 +660,7 @@ function RoomTasksPage() {
     <div className="h-full flex flex-col w-full mb-10">
       <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white container mx-auto">
         <div className="flex justify-start gap-2 ">
+          {/* Update room modal */}
           <Modal
             isOpen={isOpenUpdateRoom}
             onOpenChange={onOpenUpdateRoom}
@@ -713,6 +726,67 @@ function RoomTasksPage() {
                     </ModalFooter>
                   </form>
                 </Form>
+              )}
+            </ModalContent>
+          </Modal>
+
+          {/* Task detail modal */}
+          <Modal
+            isOpen={isOpenTaskDetail}
+            onOpenChange={onOpenChangeTaskDetail}
+            placement="center"
+          >
+            <ModalContent>
+              {() => (
+                <div className="p-2">
+                  <div>
+                    <ModalHeader>{modalTaskDetail?.title}</ModalHeader>
+                    <ModalBody>
+                      <div className="space-y-4">
+                        <div>
+                          <span className="font-bold">Description: </span>
+                          {modalTaskDetail?.description}
+                        </div>
+                        <div>
+                          <span className="font-bold">Due Date: </span>
+                          {modalTaskDetail?.dueDate
+                            ? format(
+                                new Date(modalTaskDetail?.dueDate),
+                                "dd MMMM, yyyy 'at' HH:mm"
+                              )
+                            : "No due date"}
+                        </div>
+                        <div>
+                          <span className="font-bold">Status: </span>
+                          <span
+                            className={`px-2 py-1 rounded-full text-sm ${
+                              TaskStatusBadgeColor[
+                                modalTaskDetail?.status as TaskStatus
+                              ]
+                            }`}
+                          >
+                            {modalTaskDetail?.status}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="font-bold">Assigned to: </span>
+                          {modalTaskDetail?.user
+                            ? modalTaskDetail?.user.fullName
+                            : "Unassigned"}
+                        </div>
+                      </div>
+                    </ModalBody>
+                    <ModalFooter>
+                      <Button
+                        color="danger"
+                        onPress={onCloseTaskDetail}
+                        className="w-full"
+                      >
+                        Close
+                      </Button>
+                    </ModalFooter>
+                  </div>
+                </div>
               )}
             </ModalContent>
           </Modal>
@@ -1270,7 +1344,7 @@ function RoomTasksPage() {
                                   <Button
                                     color="danger"
                                     variant="light"
-                                    onPress={onCloseAddTask}
+                                    onPress={onCloseUpdateTask}
                                   >
                                     Close
                                   </Button>
@@ -1283,36 +1357,38 @@ function RoomTasksPage() {
                           )}
                         </ModalContent>
                       </Modal>
-                      <div className="flex items-center gap-5">
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <h1 className="text-xl">{task.title}</h1>
-                          </div>
-                          <p className="flex items-center">
-                            {task.user ? (
-                              <Tooltip content={task.user.email}>
-                                <p className="flex items-center gap-1">
-                                  <CircleUserRound
-                                    size={20}
-                                    className="text-xl text-blue-500"
-                                  />
-                                  <span>{task.user.fullName}</span>
-                                </p>
-                              </Tooltip>
-                            ) : (
+
+                      {/* Task item display */}
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-center gap-2 justify-between">
+                          <h3 className="text-xl">{task.title}</h3>
+                          <ChevronRight
+                            size={18}
+                            className="cursor-pointer hover:opacity-60"
+                            onClick={() => handleOpenTaskDetailModal(task)}
+                          />
+                        </div>
+                        <p className="flex items-center">
+                          {task.user ? (
+                            <Tooltip content={task.user.email}>
                               <p className="flex items-center gap-1">
                                 <CircleUserRound
                                   size={20}
-                                  className="text-xl text-red-500"
+                                  className="text-xl text-blue-500"
                                 />
-                                <span className="text-red-500">Unassigned</span>
+                                <span>{task.user.fullName}</span>
                               </p>
-                            )}
-                          </p>
-                          <p className="text-sm mt-4">"{task.description}"</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col justify-between items-end">
+                            </Tooltip>
+                          ) : (
+                            <p className="flex items-center gap-1">
+                              <CircleUserRound
+                                size={20}
+                                className="text-xl text-red-500"
+                              />
+                              <span className="text-red-500">Unassigned</span>
+                            </p>
+                          )}
+                        </p>
                         <p className="flex items-center gap-1 text-sm">
                           <Calendar className="text-blue-500" size={16} />
                           <span>
@@ -1322,12 +1398,11 @@ function RoomTasksPage() {
                             )}
                           </span>
                         </p>
-                        <div className="flex items-center gap-2">
-                          {roomDetail?.owner?.id === user?.sub ||
-                          task?.user?.id === user?.sub ? (
+                        {roomDetail?.owner?.id === user?.sub ||
+                          (task?.user?.id === user?.sub && (
                             <form
                               onSubmit={updateStatus}
-                              className="flex gap-2"
+                              className="flex gap-2 self-end items-center"
                             >
                               <input
                                 type="hidden"
@@ -1337,7 +1412,7 @@ function RoomTasksPage() {
                               <select
                                 name="status"
                                 defaultValue={task.status}
-                                className="border rounded-sm p-1 bg-white text-[12px] border-gray-300"
+                                className="border rounded-sm p-1 bg-white text-[12px] border-gray-300 flex-1"
                                 onChange={(e) =>
                                   onChangeSelectStatus(e, task.id)
                                 }
@@ -1369,12 +1444,7 @@ function RoomTasksPage() {
                                 Update
                               </Button>
                             </form>
-                          ) : (
-                            <p className="border rounded-sm p-1 bg-slate-100 text-[12px]">
-                              {task.status}
-                            </p>
-                          )}
-                        </div>
+                          ))}
                       </div>
                     </div>
                   </DraggableTask>
