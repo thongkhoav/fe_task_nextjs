@@ -27,6 +27,7 @@ export const ToastInfo = (
     autoClose,
     pauseOnFocusLoss: true,
     pauseOnHover: true,
+    className: "text-black",
     style: {
       minWidth: "500px",
     },

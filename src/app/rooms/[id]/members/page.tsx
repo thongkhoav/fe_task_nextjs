@@ -31,8 +31,8 @@ import {
   useDisclosure,
   Button,
   Spinner,
-  PopoverTrigger,
   Popover,
+  PopoverTrigger,
   PopoverContent,
   Tooltip,
 } from "@heroui/react";
@@ -113,7 +113,7 @@ export default function RoomMemberPage() {
       description: roomDetail?.roomDescription,
     },
   });
-  const [isPopoverOpen, setPopoverOpen] = useState(false);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [isOpenRemoveRoom, setOpenRemoveRoom] = useState(false);
   const [isOpenLeaveRoom, setOpenLeaveRoom] = useState(false);
 
@@ -236,7 +236,7 @@ export default function RoomMemberPage() {
         },
       });
 
-      setPopoverOpen(false);
+      setOpenPopoverId(null);
       ToastSuccess("Member removed successfully");
       loadMembers();
     } catch (err) {
@@ -584,8 +584,10 @@ export default function RoomMemberPage() {
               </div>
               {roomDetail.owner.id === user?.sub && !member.isOwner && (
                 <Popover
-                  isOpen={isPopoverOpen}
-                  onOpenChange={setPopoverOpen}
+                  isOpen={openPopoverId === member.user.id}
+                  onOpenChange={(open) =>
+                    setOpenPopoverId(open ? member.user.id : null)
+                  }
                   placement="right"
                 >
                   <PopoverTrigger>
@@ -607,7 +609,7 @@ export default function RoomMemberPage() {
                           Yes
                         </button>
                         <button
-                          onClick={() => setPopoverOpen(false)}
+                          onClick={() => setOpenPopoverId(null)}
                           className="px-3 py-1 bg-gray-200 rounded-sm text-sm"
                         >
                           No
