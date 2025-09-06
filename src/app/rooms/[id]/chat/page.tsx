@@ -70,7 +70,13 @@ export default function ChatPage() {
                   m?.sender.id === user?.sub && "ml-auto"
                 }`}
               >
-                <div>
+                <div className="flex items-center gap-1 mb-1">
+                  {" "}
+                  {m?.sender.id !== user?.sub ? (
+                    <b>{m.sender?.fullName || "Unknown"}</b>
+                  ) : (
+                    <b>You</b>
+                  )}
                   <span className="text-sm text-gray-500">
                     {format(currentDate, "HH:mm")}
                   </span>
@@ -80,11 +86,6 @@ export default function ChatPage() {
                     m?.sender.id === user?.sub ? "bg-blue-100" : "bg-slate-200"
                   } p-2 rounded-md`}
                 >
-                  {m?.sender.id !== user?.sub ? (
-                    <b>{m.sender?.fullName || "Unknown"}:</b>
-                  ) : (
-                    <b>You:</b>
-                  )}{" "}
                   {m.content}
                 </p>
               </div>
