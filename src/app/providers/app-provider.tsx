@@ -10,7 +10,7 @@ import ToastProvider from "./toast-provider";
 import { clearCookieLocal, setCookieLocal } from "../common/util/cookie-action";
 import useAxiosPrivate from "../common/util/axios/useAxiosPrivate";
 import { ToastError, ToastInfo, ToastSuccess } from "../common/util/toast";
-import { CircleUserRound, LogOut, UserRound } from "lucide-react";
+import { CircleUserRound, LogOut, Pencil } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { firebaseCloudMessaging } from "../config/firebase";
@@ -20,7 +20,27 @@ import { log } from "console";
 import NotificationProvider from "./notification-provider";
 import getAuthentication from "../(auth)/actions/get-authentication";
 import { socket } from "../socket/socket";
-import axios from "axios";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Button,
+} from "@heroui/react";
+import { Input } from "@/components/ui/input";
 
 export enum RoleType {
   ADMIN = "ADMIN",
@@ -33,6 +53,10 @@ type User = {
   fullName: string;
   role: RoleType;
 };
+
+const editUserSchema = z.object({
+  fullName: z.string().min(2).max(30),
+});
 
 const AppContext = createContext<{
   user: User | null;
@@ -67,10 +91,22 @@ export default function AppProvider({
     // }
     return null;
   });
+  const {
+    isOpen: isOpenEditUser,
+    onOpen: onOpenEditUser,
+    onOpenChange: onOpenChangeEditUser,
+    onClose: onCloseEditUser,
+  } = useDisclosure();
   const [tokens, setTokens] = useState<TokenPair | null>(null);
   const isAuthenticated = Boolean(user);
   const axiosPrivate = useAxiosPrivate();
   const router = useRouter();
+  const editUserForm = useForm<z.infer<typeof editUserSchema>>({
+    resolver: zodResolver(editUserSchema),
+    defaultValues: {
+      fullName: "",
+    },
+  });
 
   const setUser = useCallback((tokens: TokenPair | null) => {
     if (tokens) {
@@ -171,16 +207,9 @@ export default function AppProvider({
       if (cookieUser && cookieUser?.access_token) {
         const decodedToken: any = jwtDecode(cookieUser?.access_token);
         if (decodedToken) {
-          const newUser = {
-            sub: decodedToken.sub,
-            email: decodedToken.email,
-            fullName: decodedToken.fullName,
-            role: decodedToken.role,
-          };
-          console.log(newUser);
           // localStorage.setItem("task_user", JSON.stringify(cookieUser));
-          setUserState(newUser);
-
+          const userResponse = await axiosPrivate.get("/auth/me");
+          setUserState(userResponse?.data);
           setTokens(cookieUser);
           return;
         }
@@ -192,6 +221,34 @@ export default function AppProvider({
     };
     effectFunc();
   }, []);
+
+  const handleOpenEditUser = () => {
+    if (!user) return;
+    editUserForm.reset({
+      fullName: user.fullName,
+    });
+    onOpenEditUser();
+  };
+
+  const onUpdateUser = async (values: z.infer<typeof editUserSchema>) => {
+    try {
+      console.log(values);
+      if (!tokens) return;
+      await axiosPrivate.put(`/user`, {
+        fullName: values.fullName,
+      });
+      const updatedUser = {
+        ...user,
+        fullName: values.fullName,
+      } as User;
+      setUserState(updatedUser);
+      ToastSuccess("Update user success");
+      onCloseEditUser();
+    } catch (error: any) {
+      console.log(error);
+      ToastError(error.response?.data?.message || error.message);
+    }
+  };
 
   return (
     <ToastProvider>
@@ -208,10 +265,63 @@ export default function AppProvider({
         >
           {user && isAuthenticated && (
             <div className="w-full flex justify-center">
-              <div className="flex justify-between gap-5 px-5 min-w-80 py-2 bg-slate-200 rounded-md mt-5">
+              <div className="flex justify-between gap-5 px-2 min-w-80 py-2 bg-slate-200 rounded-md mt-5">
+                <Modal
+                  isOpen={isOpenEditUser}
+                  onOpenChange={onOpenChangeEditUser}
+                  placement="center"
+                >
+                  <ModalContent>
+                    {() => (
+                      <Form {...editUserForm}>
+                        <form
+                          onSubmit={editUserForm.handleSubmit(onUpdateUser)}
+                        >
+                          <ModalHeader className="flex flex-col gap-1">
+                            Edit user
+                          </ModalHeader>
+                          <ModalBody>
+                            <FormField
+                              control={editUserForm.control}
+                              name="fullName"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Full name</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="Input full name..."
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </ModalBody>
+                          <ModalFooter>
+                            <Button
+                              color="danger"
+                              variant="light"
+                              onPress={onCloseEditUser}
+                            >
+                              Close
+                            </Button>
+                            <Button color="primary" type="submit">
+                              Save
+                            </Button>
+                          </ModalFooter>
+                        </form>
+                      </Form>
+                    )}
+                  </ModalContent>
+                </Modal>
                 <Tooltip content={user?.email}>
                   <div className="text-lg font-bold flex items-center gap-1 cursor-pointer">
-                    <CircleUserRound />
+                    <Pencil
+                      size={20}
+                      className="hover:cursor-pointer"
+                      onClick={handleOpenEditUser}
+                    />
                     {user.fullName}
                   </div>
                 </Tooltip>
