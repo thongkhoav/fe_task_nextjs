@@ -18,12 +18,20 @@ import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/providers/app-provider";
 import { ToastError, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   forgotPasswordApi,
   resetPasswordApi,
 } from "@/apiRequests/auth/login.api";
+
+export default function ResetPasswordWrapper() {
+  return (
+    <Suspense>
+      <ResetPassword />
+    </Suspense>
+  );
+}
 
 const formSchema = z
   .object({
@@ -41,7 +49,7 @@ const formSchema = z
     }
   });
 
-export default function ResetPassword() {
+function ResetPassword() {
   const { login } = useAppContext();
   const router = useRouter();
   const searchParams = useSearchParams();
