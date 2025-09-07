@@ -1,31 +1,35 @@
-# Stage 1: Build the Next.js application
+# Stage 1: Build
 FROM node:22-alpine AS builder
 
 WORKDIR /app
-
-# Copy package files and install dependencies
-COPY package.json package-lock.json ./
-RUN npm ci
-
-# Copy the rest of the application source code
+COPY package*.json ./
+RUN npm install
 COPY . .
 
-# Build the Next.js application
-RUN npm run build
+ARG NEXT_PUBLIC_SERVER_HOST
+ARG NEXT_PUBLIC_WS_URL
+ARG NEXT_PUBLIC_DOMAIN
+ARG NEXT_PUBLIC_VAPID_KEY
+ARG LOCAL_STORAGE_FCM_KEY
 
-# Stage 2: Create the production image
-FROM node:22-alpine AS runner
+ENV NEXT_PUBLIC_SERVER_HOST=$NEXT_PUBLIC_SERVER_HOST
+ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
+ENV NEXT_PUBLIC_DOMAIN=$NEXT_PUBLIC_DOMAIN
+ENV NEXT_PUBLIC_VAPID_KEY=$NEXT_PUBLIC_VAPID_KEY
+ENV LOCAL_STORAGE_FCM_KEY=$LOCAL_STORAGE_FCM_KEY
+
+RUN npm run build   # produces .next/
+
+# Stage 2: Run
+FROM node:22-alpine
 
 WORKDIR /app
+COPY --from=builder /app/package*.json ./
+RUN npm install --production
 
-# Set environment variables for Next.js production mode
-ENV NODE_ENV=production
-
-# Copy only the necessary files from the builder stage
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-# Expose the port Next.js runs on
 EXPOSE 3000
+CMD ["npm", "start"]

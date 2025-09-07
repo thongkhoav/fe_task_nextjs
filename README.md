@@ -9,6 +9,8 @@
   - Install packages
 - To test notifications, please Allow Notification feature on the browser
 - File src/swEnvBuild.js to create file swEnv.js with env to public folder
+- Docker run: docker run -d --env-file /home/ec2-user/frontend/.env -p 80:3000 --network mynetwork --name frontend thongkhoav/fe-task-amd64:v1
+- Copy source to server: scp -i keypem.pem -r ~/project-path ec2-user@4{IP}:/home/ec2-user/frontend
 
 ## 🚀 Features
 
@@ -23,4 +25,5 @@
   - Owners assign tasks to members
   - Members can only update tasks assigned to them
 - **Real-time Updates**:
+
   - Tasks update instantly for everyone in the room via **WebSockets**

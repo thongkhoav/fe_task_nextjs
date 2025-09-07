@@ -2,7 +2,7 @@
 
 import io from "socket.io-client";
 import { READ_ENV } from "../common/util";
-export const socket = io(READ_ENV.SERVER_HOST, {
+export const socket = io(READ_ENV.WS_URL, {
   transports: ["websocket"],
   autoConnect: false,
   reconnectionAttempts: 5,
