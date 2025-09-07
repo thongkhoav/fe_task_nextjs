@@ -7,7 +7,7 @@ import { use, useCallback, useContext, useEffect, useState } from "react";
 import { createContext } from "react";
 import { jwtDecode } from "jwt-decode";
 import ToastProvider from "./toast-provider";
-import { clearCookieLocal, setCookieLocal } from "../common/util/cookie-action";
+import { clearCookieLocal } from "../common/util/cookie-action";
 import useAxiosPrivate from "../common/util/axios/useAxiosPrivate";
 import { ToastError, ToastInfo, ToastSuccess } from "../common/util/toast";
 import { CircleUserRound, LogOut, Pencil } from "lucide-react";
@@ -208,10 +208,18 @@ export default function AppProvider({
         const decodedToken: any = jwtDecode(cookieUser?.access_token);
         if (decodedToken) {
           // localStorage.setItem("task_user", JSON.stringify(cookieUser));
-          const userResponse = await axiosPrivate.get("/auth/me");
-          setUserState(userResponse?.data);
-          setTokens(cookieUser);
-          return;
+          try {
+            const userResponse = await axiosPrivate.get("/auth/me");
+            setUserState(userResponse?.data);
+            setTokens(cookieUser);
+            return;
+          } catch (error) {
+            console.log("Error fetching user data:", error);
+            setUserState(null);
+            setTokens(null);
+            clearCookieLocal();
+            return;
+          }
         }
       } else {
         localStorage.removeItem("task_user");

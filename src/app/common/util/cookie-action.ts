@@ -12,7 +12,7 @@ export const setCookieLocal = (value: TokenPair) => {
   cookies().set({
     name: AUTHENTICATION_COOKIE,
     value: JSON.stringify(value),
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     httpOnly: true,
     expires,
   });

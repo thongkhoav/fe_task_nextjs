@@ -53,62 +53,62 @@ const useAxiosPrivate = () => {
         // 500 expire
         // 401 user no longer exist
         console.log("Error response:", error);
-        const cookieUser = await getAuthentication();
-        if (
-          error?.response?.status === 401 &&
-          !prevRequest?.sent &&
-          cookieUser
-        ) {
-          prevRequest.sent = true;
-          // const newAccessToken = await axiosBase.post("/auth/refresh");
-          // prevRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
+        // const cookieUser = await getAuthentication();
+        // if (
+        //   error?.response?.status === 401 &&
+        //   !prevRequest?.sent &&
+        //   cookieUser
+        // ) {
+        //   prevRequest.sent = true;
+        //   // const newAccessToken = await axiosBase.post("/auth/refresh");
+        //   // prevRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
 
-          // clear user and redirect to login page
-          // console.log("Access token expired, redirecting to login page");
-          try {
-            // If no user found in cookie, redirect to login
-            if (!cookieUser) {
-              console.log("No user found in cookie, redirecting to login page");
-              setUser(null);
-              deleteCookieAuthen();
-              router.push("/login");
-              router.refresh();
-              return Promise.reject(error);
-            }
+        //   // clear user and redirect to login page
+        //   // console.log("Access token expired, redirecting to login page");
+        //   try {
+        //     // If no user found in cookie, redirect to login
+        //     if (!cookieUser) {
+        //       console.log("No user found in cookie, redirecting to login page");
+        //       setUser(null);
+        //       deleteCookieAuthen();
+        //       router.push("/login");
+        //       router.refresh();
+        //       return Promise.reject(error);
+        //     }
 
-            const refreshResponse = await axiosBase2.post("/auth/refresh", {
-              fcmToken: firebaseCloudMessaging?.tokenInlocalStorage(),
-            });
-            const decodedToken: any = jwtDecode(
-              refreshResponse?.data?.access_token
-            );
-            if (decodedToken) {
-              const newUser = {
-                sub: decodedToken.sub,
-                email: decodedToken.email,
-                fullName: decodedToken.fullName,
-                role: decodedToken.role,
-              };
-              console.log(newUser);
-              // localStorage.setItem("task_user", JSON.stringify(cookieUser));
-              setUser(refreshResponse?.data);
-              return axiosBase2(prevRequest);
-            }
-          } catch (refreshError: any) {
-            console.log("Error refreshing access token:", refreshError);
-            console.log("Refresh token expired, redirecting to login page");
-            setUser(null);
-            deleteCookieAuthen();
-            router.push("/login");
-            router.refresh();
-            if (
-              refreshError?.response?.data?.message ===
-              AuthError.REFRESH_TOKEN_EXPIRED
-            ) {
-            }
-            return Promise.reject(refreshError);
-          }
-        }
+        //     const refreshResponse = await axiosBase2.post("/auth/refresh", {
+        //       fcmToken: firebaseCloudMessaging?.tokenInlocalStorage(),
+        //     });
+        //     const decodedToken: any = jwtDecode(
+        //       refreshResponse?.data?.access_token
+        //     );
+        //     if (decodedToken) {
+        //       const newUser = {
+        //         sub: decodedToken.sub,
+        //         email: decodedToken.email,
+        //         fullName: decodedToken.fullName,
+        //         role: decodedToken.role,
+        //       };
+        //       console.log(newUser);
+        //       // localStorage.setItem("task_user", JSON.stringify(cookieUser));
+        //       setUser(refreshResponse?.data);
+        //       return axiosBase2(prevRequest);
+        //     }
+        //   } catch (refreshError: any) {
+        //     console.log("Error refreshing access token:", refreshError);
+        //     console.log("Refresh token expired, redirecting to login page");
+        //     setUser(null);
+        //     deleteCookieAuthen();
+        //     router.push("/login");
+        //     router.refresh();
+        //     if (
+        //       refreshError?.response?.data?.message ===
+        //       AuthError.REFRESH_TOKEN_EXPIRED
+        //     ) {
+        //     }
+        //     return Promise.reject(refreshError);
+        //   }
+        // }
         return Promise.reject(error);
       }
     );
