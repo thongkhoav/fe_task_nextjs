@@ -41,6 +41,7 @@ import {
   Button,
 } from "@heroui/react";
 import { Input } from "@/components/ui/input";
+import { axiosBase } from "../common/util";
 
 export enum RoleType {
   ADMIN = "ADMIN",
@@ -48,7 +49,7 @@ export enum RoleType {
 }
 
 type User = {
-  sub: string;
+  id: string;
   email: string;
   fullName: string;
   role: RoleType;
@@ -65,6 +66,7 @@ const AppContext = createContext<{
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  loginGoogle: () => Promise<void>;
 }>({
   user: null,
   tokens: null,
@@ -72,6 +74,7 @@ const AppContext = createContext<{
   isAuthenticated: false,
   login: async () => {},
   logout: async () => {},
+  loginGoogle: async () => {},
 });
 
 export const useAppContext = () => {
@@ -114,7 +117,7 @@ export default function AppProvider({
       const decodedToken: any = jwtDecode(tokens?.access_token);
       if (decodedToken) {
         const user = {
-          sub: decodedToken.sub,
+          id: decodedToken.sub,
           email: decodedToken.email,
           fullName: decodedToken.fullName,
           role: decodedToken.role,
@@ -143,7 +146,7 @@ export default function AppProvider({
         const decodedToken: any = jwtDecode(data?.access_token);
         if (decodedToken) {
           const newUser = {
-            sub: decodedToken.sub,
+            id: decodedToken.sub,
             email: decodedToken.email,
             fullName: decodedToken.fullName,
             role: decodedToken.role,
@@ -161,6 +164,10 @@ export default function AppProvider({
     },
     [setUser]
   );
+
+  const handleLoginGoogle = async () => {
+    window.location.href = `${process.env.NEXT_PUBLIC_SERVER_HOST}/api/v1/auth/google`;
+  };
 
   const handleLogout = async () => {
     try {
@@ -269,6 +276,7 @@ export default function AppProvider({
             isAuthenticated,
             login: handleLogin,
             logout: handleLogout,
+            loginGoogle: handleLoginGoogle,
           }}
         >
           {user && isAuthenticated && (

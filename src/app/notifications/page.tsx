@@ -8,7 +8,7 @@ import Link from "next/link";
 export default function NotificationsPage() {
   const { notifications, markNotificationAsRead } = useNotificationContext();
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen px-4">
       <div className=" mb-3 text-center font-bold text-3xl text-white relative mt-5">
         Notifications
       </div>
@@ -38,7 +38,7 @@ export default function NotificationsPage() {
             {notifications.map((notification, index) => (
               <div
                 key={notification.id}
-                className={`${
+                className={`bg-white ${
                   !notification?.isRead && "bg-gray-100 hover:bg-white"
                 } cursor-pointer p-4 border border-gray-200 rounded-md`}
               >

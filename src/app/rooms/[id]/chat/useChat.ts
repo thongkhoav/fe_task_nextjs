@@ -5,13 +5,14 @@ import useAxiosPrivate from "@/app/common/util/axios/useAxiosPrivate";
 import { RoomDetail } from "@/apiRequests/room/room-detail.type";
 import { ToastError } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
+import { Message } from "@/apiRequests/chat/message.type";
 
 interface RoomDetailResponse {
   data: RoomDetail;
 }
 
 export function useChat(roomId: string, userId: string) {
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const axiosPrivate = useAxiosPrivate();
   const router = useRouter();
   const [roomDetail, setRoomDetail] = useState<RoomDetail>();

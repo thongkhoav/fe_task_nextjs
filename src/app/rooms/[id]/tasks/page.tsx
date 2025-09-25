@@ -82,6 +82,7 @@ export interface Task {
     id: string;
     name: string;
   };
+  createdAt: string;
 }
 
 interface RoomDetailResponse {
@@ -457,7 +458,7 @@ function RoomTasksPage() {
       socket.emit("update_task", {
         taskId,
         status,
-        curUserId: user?.sub,
+        curUserId: user?.id,
       });
 
       ToastSuccess("Task status updated to " + status);
@@ -499,7 +500,7 @@ function RoomTasksPage() {
       socket.emit("update_task", {
         taskId,
         status,
-        curUserId: user?.sub,
+        curUserId: user?.id,
       });
 
       ToastSuccess("Task status updated to " + status);
@@ -657,7 +658,7 @@ function RoomTasksPage() {
   }
 
   return (
-    <div className="h-full flex flex-col w-full mb-10">
+    <div className="h-full flex flex-col w-full mb-10 px-4">
       <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white container mx-auto">
         <div className="flex justify-start gap-2 ">
           {/* Update room modal */}
@@ -752,7 +753,7 @@ function RoomTasksPage() {
                           {modalTaskDetail?.dueDate
                             ? format(
                                 new Date(modalTaskDetail?.dueDate),
-                                "dd MMMM, yyyy 'at' HH:mm"
+                                "MMMM dd, yyyy hh:mm a"
                               )
                             : "No due date"}
                         </div>
@@ -809,7 +810,7 @@ function RoomTasksPage() {
                 className="cursor-pointer"
               />
               {/* Owner remove this room */}
-              {user?.sub === roomDetail?.owner?.id && (
+              {user?.id === roomDetail?.owner?.id && (
                 <Popover
                   isOpen={isOpenRemoveRoom}
                   onOpenChange={setOpenRemoveRoom}
@@ -847,7 +848,7 @@ function RoomTasksPage() {
                 </Popover>
               )}
               {/* Member leave room */}
-              {user?.sub !== roomDetail?.owner?.id && (
+              {user?.id !== roomDetail?.owner?.id && (
                 <Popover
                   isOpen={isOpenLeaveRoom}
                   onOpenChange={setOpenLeaveRoom}
@@ -905,7 +906,7 @@ function RoomTasksPage() {
           </div>
         </div>
         <div className="flex flex-col justify-between">
-          {roomDetail.owner.id === user?.sub && (
+          {roomDetail.owner.id === user?.id && (
             <Button
               onPress={onOpenAddTask}
               className="bg-blue-500 text-white hover:bg-blue-600"
@@ -1060,7 +1061,7 @@ function RoomTasksPage() {
       <div className="mt-10 mb-3 text-center font-bold text-3xl relative text-white">
         Tasks
         <span
-          className="absolute right-0 cursor-pointer hover:opacity-60"
+          className="absolute right-0 cursor-pointer hover:opacity-60 mr-4"
           onClick={() => loadRoomTasks()}
         >
           <RefreshCcw color={Style.WHITE} />
@@ -1147,6 +1148,14 @@ function RoomTasksPage() {
                 tasksToShow = [];
             }
 
+            // sort tasksToShow by due date(latest first), the task has no due date will be at the end
+            tasksToShow.sort((a, b) => {
+              return (
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+              );
+            });
+
             // if (tasksToShow.length === 0) {
             //   return (
             //     <div
@@ -1183,17 +1192,17 @@ function RoomTasksPage() {
                     key={task?.id}
                     item={task}
                     canDrag={
-                      roomDetail?.owner?.id === user?.sub ||
-                      task?.user?.id === user?.sub
+                      roomDetail?.owner?.id === user?.id ||
+                      task?.user?.id === user?.id
                     }
                   >
                     <div
                       key={task.id}
                       className={` rounded-md pr-2 ${
-                        roomDetail?.owner?.id === user?.sub ? "pl-6" : ""
+                        roomDetail?.owner?.id === user?.id ? "pl-6" : ""
                       } py-2 flex justify-between relative`}
                     >
-                      {user?.sub === roomDetail?.owner?.id && (
+                      {user?.id === roomDetail?.owner?.id && (
                         <button
                           onClick={() => onOpenUpdateTaskWithValues(task)}
                           className="text-lg cursor-pointer absolute -top-1 -left-1"
@@ -1398,8 +1407,8 @@ function RoomTasksPage() {
                             )}
                           </span>
                         </p>
-                        {roomDetail?.owner?.id === user?.sub ||
-                          (task?.user?.id === user?.sub && (
+                        {roomDetail?.owner?.id === user?.id ||
+                          (task?.user?.id === user?.id && (
                             <form
                               onSubmit={updateStatus}
                               className="flex gap-2 self-end items-center"

@@ -16,7 +16,7 @@ export default function ChatPage() {
   const { id: roomId } = params;
   const { messages, sendMessage, roomDetail } = useChat(
     roomId as string,
-    user?.sub as string
+    user?.id as string
   );
   const [input, setInput] = useState("");
 
@@ -67,11 +67,11 @@ export default function ChatPage() {
 
               <div
                 className={`mb-2 p-2 rounded-lg w-2/5 ${
-                  message?.sender.id === user?.sub && "ml-auto"
+                  message?.sender.id === user?.id && "ml-auto"
                 }`}
               >
                 <div className="flex items-center gap-1 mb-1">
-                  {message?.sender.id !== user?.sub && (
+                  {message?.sender.id !== user?.id && (
                     <b>{message.sender?.fullName || "Unknown"}</b>
                   )}
                   <span className="text-sm text-gray-500">
@@ -80,7 +80,7 @@ export default function ChatPage() {
                 </div>
                 <p
                   className={`${
-                    message?.sender.id === user?.sub
+                    message?.sender.id === user?.id
                       ? "bg-blue-100"
                       : "bg-slate-200"
                   } p-2 rounded-md`}

@@ -16,16 +16,19 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useAppContext } from "@/app/providers/app-provider";
-import { ToastError, ToastSuccess } from "@/app/common/util/toast";
+import { ToastError, ToastInfo, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { axiosBase } from "@/app/common/util";
 import { forgotPasswordApi } from "@/apiRequests/auth/login.api";
+import { Toast } from "@heroui/react";
 
 export default function ResetPassword() {
   const [isSending, setIsSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const { user } = useAppContext();
+  const router = useRouter();
 
   const emailForm = useForm({
     resolver: zodResolver(
@@ -52,6 +55,13 @@ export default function ResetPassword() {
       setIsSending(false);
     }
   }
+
+  useEffect(() => {
+    if (user) {
+      ToastInfo("You are already logged in, redirecting...");
+      router.push("/rooms");
+    }
+  }, []);
 
   return (
     <div className=" h-screen flex items-center justify-center">
@@ -84,13 +94,15 @@ export default function ResetPassword() {
                 </FormItem>
               )}
             />
-            <Button
+            <button
               type="submit"
               disabled={isSending}
-              className={`w-full ${emailSent && "bg-teal-700"}`}
+              className={`py-2 rounded-sm w-full text-white bg-blue-600 ${
+                emailSent && "bg-green-600"
+              } hover:opacity-90`}
             >
               {emailSent ? "Resend" : "Send reset link"}
-            </Button>
+            </button>
           </form>
         </Form>
 
