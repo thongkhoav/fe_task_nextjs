@@ -171,7 +171,7 @@ export default function RoomMemberPage() {
         owner: detail.owner.id,
       });
 
-      setIsOwner(user?.sub === detail.owner.id);
+      setIsOwner(user?.id === detail.owner.id);
       updateRoomForm.setValue("name", detail?.roomName);
       updateRoomForm.setValue("description", detail?.roomDescription);
     } catch (err: any) {
@@ -380,7 +380,7 @@ export default function RoomMemberPage() {
                 className="cursor-pointer"
               />
               {/* Owner remove this room */}
-              {user?.sub === roomDetail?.owner?.id && (
+              {user?.id === roomDetail?.owner?.id && (
                 <Popover
                   isOpen={isOpenRemoveRoom}
                   onOpenChange={setOpenRemoveRoom}
@@ -418,7 +418,7 @@ export default function RoomMemberPage() {
                 </Popover>
               )}
               {/* Member leave room */}
-              {user?.sub !== roomDetail?.owner?.id && (
+              {user?.id !== roomDetail?.owner?.id && (
                 <Popover
                   isOpen={isOpenLeaveRoom}
                   onOpenChange={setOpenLeaveRoom}
@@ -582,7 +582,7 @@ export default function RoomMemberPage() {
                   <p className="text-sm">{member.user.email}</p>
                 </div>
               </div>
-              {roomDetail.owner.id === user?.sub && !member.isOwner && (
+              {roomDetail.owner.id === user?.id && !member.isOwner && (
                 <Popover
                   isOpen={openPopoverId === member.user.id}
                   onOpenChange={(open) =>

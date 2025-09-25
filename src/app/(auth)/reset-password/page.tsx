@@ -20,10 +20,8 @@ import { ToastError, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  forgotPasswordApi,
-  resetPasswordApi,
-} from "@/apiRequests/auth/login.api";
+import { resetPasswordApi } from "@/apiRequests/auth/login.api";
+import { jwtDecode } from "jwt-decode";
 
 export default function ResetPasswordWrapper() {
   return (
@@ -66,6 +64,19 @@ function ResetPassword() {
   useEffect(() => {
     if (!token) {
       ToastError("No token provided");
+      router.push("/forgot-password");
+    }
+    // decode token to check expire
+    try {
+      const decoded: any = jwtDecode(token as string);
+      const currentTime = Date.now() / 1000; // in seconds
+      if (decoded.exp < currentTime) {
+        ToastError("Token has expired");
+        router.push("/forgot-password");
+      }
+    } catch (error) {
+      console.log("Invalid token", error);
+      ToastError("Invalid token");
       router.push("/forgot-password");
     }
   }, [token, router]);

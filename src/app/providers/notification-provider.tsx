@@ -60,7 +60,7 @@ export default function NotificationProvider({
       user,
       tokens,
     });
-    if (!user?.sub || !tokens?.refresh_token) return;
+    if (!user?.id || !tokens?.refresh_token) return;
     await getNotifications();
 
     firebaseCloudMessaging
@@ -127,7 +127,7 @@ export default function NotificationProvider({
   };
 
   const getNotifications = async () => {
-    if (!user?.sub) return;
+    if (!user?.id) return;
     try {
       const savedNotifications = await axiosPrivate.get<NotificationsResponse>(
         `/notification`,
@@ -161,7 +161,7 @@ export default function NotificationProvider({
     >
       {user && (
         <div className="w-full flex justify-center mt-5">
-          <div className="flex justify-between gap-5 px-5 min-w-80 py-2 bg-slate-200 rounded-md">
+          <div className="flex justify-between gap-5 p-4 min-w-80 bg-slate-200 rounded-md">
             <Link
               href="/notifications"
               className="text-lg font-bold flex items-center gap-1 cursor-pointer"
@@ -182,7 +182,7 @@ export default function NotificationProvider({
                   </PopoverTrigger>
                 </Badge>
                 <PopoverContent>
-                  <div>
+                  <div className="p-1">
                     {notifications.filter((noti) => !noti?.isRead).length >
                       0 && (
                       <p className="flex justify-end mb-2">
@@ -196,14 +196,14 @@ export default function NotificationProvider({
                         </span>
                       </p>
                     )}
-                    <div className="flex flex-col min-w-72 max-w-[400px] py-2">
+                    <div className="flex flex-col min-w-72 max-w-[400px] rounded-md overflow-hidden">
                       {notifications.map((notification, index) => (
                         <div key={notification.id}>
                           <div
                             className={`flex justify-between gap-5 ${
                               !notification?.isRead &&
-                              "bg-gray-100 hover:bg-white"
-                            } cursor-pointer`}
+                              "bg-gray-100 hover:bg-gray-200"
+                            } cursor-pointer p-2 `}
                             onClick={() => {
                               if (!notification.isRead) {
                                 markNotificationAsRead(notification.id, false);

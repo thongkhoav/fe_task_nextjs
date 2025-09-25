@@ -9,14 +9,14 @@ const authPaths = ["/login", "/signup"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAuthen = await authenticated();
-  // Chưa đăng nhập thì không cho vào private paths
+  // Un-authen will be redirect to login
   if (privatePaths.some((path) => pathname.startsWith(path)) && !isAuthen) {
     console.log("redirect to login");
     if (!authPaths.some((path) => pathname.startsWith(path))) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
   }
-  // Đăng nhập rồi thì không cho vào login/register nữa
+  // Authenticated will be redirect to rooms
   if (authPaths.some((path) => pathname.startsWith(path)) && !!isAuthen) {
     return NextResponse.redirect(new URL("/rooms", request.url));
   }

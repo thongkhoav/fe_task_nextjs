@@ -27,7 +27,7 @@ const formSchema = z.object({
 });
 
 export default function Login() {
-  const { login } = useAppContext();
+  const { login, loginGoogle } = useAppContext();
   const router = useRouter();
   const [loadingLogin, setLoadingLogin] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -101,6 +101,14 @@ export default function Login() {
             </Button>
           </form>
         </Form>
+        <Button
+          type="submit"
+          onClick={loginGoogle}
+          className="w-full mt-2"
+          variant={"outline"}
+        >
+          Login by Google
+        </Button>
         <Link
           href="/signup"
           className="block mt-5 w-full text-center underline cursor-pointer"
