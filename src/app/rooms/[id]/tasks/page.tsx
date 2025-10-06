@@ -16,6 +16,7 @@ import {
   Mail,
   LogOut,
   Group,
+  ChevronLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { now, getLocalTimeZone, fromDate } from "@internationalized/date";
@@ -798,7 +799,7 @@ function RoomTasksPage() {
               passHref
               className="h-full flex justify-center rounded-sm px-2 items-center bg-slate-100 hover:bg-slate-200"
             >
-              <Group size={25} />
+              <ChevronLeft size={25} />
             </Link>
           </Tooltip>
           <div className="flex flex-col gap-2">
