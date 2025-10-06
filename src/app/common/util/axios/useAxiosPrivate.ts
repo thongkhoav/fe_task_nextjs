@@ -16,24 +16,66 @@ export const axiosBase2 = axios.create({
   withCredentials: true,
 });
 
+const axiosNoIntercept = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_SERVER_HOST + "/api/v1",
+  headers: { "Content-Type": "application/json" },
+  withCredentials: true,
+});
+
 const useAxiosPrivate = () => {
   //   const refresh = useRefreshToken();
-  const { setUser } = useAppContext();
+  const { setUser, tokens, user } = useAppContext();
   const router = useRouter();
 
   useEffect(() => {
     const requestIntercept = axiosBase2.interceptors.request.use(
       async (config: any) => {
-        // get user from cookie
-        // const cookieUser = await getAuthentication();
-        // if (!cookieUser) {
-        //   console.log("No user found in cookie, redirecting to login page");
-        //   setUser(null);
-        //   deleteCookieAuthen();
-        //   router.push("/login");
-        //   router.refresh();
-        //   return config;
-        // }
+        console.log("request request:");
+        const cookieUser = await getAuthentication();
+        console.log("request cookieUser:", cookieUser);
+        if (cookieUser && cookieUser?.access_token) {
+          try {
+            const decoded: any = jwtDecode(cookieUser?.access_token);
+            const isExpired = decoded.exp * 1000 < Date.now();
+
+            if (isExpired) {
+              console.log("Access token expired. Refreshing...");
+              try {
+                const refreshRes = await axiosNoIntercept.post(
+                  "/auth/refresh",
+                  {
+                    fcmToken: firebaseCloudMessaging?.tokenInlocalStorage(),
+                  }
+                );
+
+                // update user in context
+                setUser(refreshRes.data);
+
+                // backend already set cookies; we just continue
+              } catch (err) {
+                console.error("Failed to refresh token:", err);
+                deleteCookieAuthen();
+                setUser(null);
+                router.push("/login");
+                router.refresh();
+                return Promise.reject(err);
+              }
+            }
+          } catch (decodeErr) {
+            console.warn("Invalid access token, redirecting to login");
+            deleteCookieAuthen();
+            setUser(null);
+            router.push("/login");
+            router.refresh();
+            return Promise.reject(decodeErr);
+          }
+        } else {
+          deleteCookieAuthen();
+          setUser(null);
+          router.push("/login");
+          router.refresh();
+          return Promise.reject();
+        }
 
         return config;
       },
@@ -47,67 +89,12 @@ const useAxiosPrivate = () => {
         config: any;
         response: { status: number; data: any };
       }) => {
-        // log request url
-        console.log("Request URL:", error?.config?.url);
-        const prevRequest = error?.config;
-        // 500 expire
-        // 401 user no longer exist
-        console.log("Error response:", error);
-        const cookieUser = await getAuthentication();
-        if (
-          error?.response?.status === 401 &&
-          !prevRequest?.sent &&
-          cookieUser
-        ) {
-          prevRequest.sent = true;
-          // const newAccessToken = await axiosBase.post("/auth/refresh");
-          // prevRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
-
-          // clear user and redirect to login page
-          // console.log("Access token expired, redirecting to login page");
-          try {
-            // If no user found in cookie, redirect to login
-            if (!cookieUser) {
-              console.log("No user found in cookie, redirecting to login page");
-              setUser(null);
-              deleteCookieAuthen();
-              router.push("/login");
-              router.refresh();
-              return Promise.reject(error);
-            }
-
-            const refreshResponse = await axiosBase2.post("/auth/refresh", {
-              fcmToken: firebaseCloudMessaging?.tokenInlocalStorage(),
-            });
-            const decodedToken: any = jwtDecode(
-              refreshResponse?.data?.access_token
-            );
-            if (decodedToken) {
-              const newUser = {
-                sub: decodedToken.sub,
-                email: decodedToken.email,
-                fullName: decodedToken.fullName,
-                role: decodedToken.role,
-              };
-              console.log(newUser);
-              // localStorage.setItem("task_user", JSON.stringify(cookieUser));
-              setUser(refreshResponse?.data);
-              return axiosBase2(prevRequest);
-            }
-          } catch (refreshError: any) {
-            console.log("Error refreshing access token:", refreshError);
-            console.log("Refresh token expired, redirecting to login page");
-            setUser(null);
-            deleteCookieAuthen();
-            router.push("/login");
-            router.refresh();
-            if (
-              refreshError?.response?.data?.message ===
-              AuthError.REFRESH_TOKEN_EXPIRED
-            ) {
-            }
-            return Promise.reject(refreshError);
-          }
+        if (error?.response?.status === 401) {
+          console.warn("401 response - redirecting to login");
+          deleteCookieAuthen();
+          setUser(null);
+          router.push("/login");
+          router.refresh();
         }
         return Promise.reject(error);
       }

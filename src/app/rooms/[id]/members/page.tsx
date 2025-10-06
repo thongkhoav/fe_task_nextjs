@@ -14,7 +14,6 @@ import {
   CircleX,
   Copy,
   Crown,
-  Group,
   LogOut,
   Mail,
   RefreshCcw,
@@ -367,7 +366,7 @@ export default function RoomMemberPage() {
               passHref
               className="h-full flex justify-center rounded-sm px-2 items-center bg-slate-100 hover:bg-slate-200"
             >
-              <Group size={25} />
+              <ChevronLeft size={25} />
             </Link>
           </Tooltip>
 
