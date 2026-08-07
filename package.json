@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node src/swEnvBuild.js && next dev",
+    "dev": "node src/swEnvBuild.js && node -r dotenv/config ./node_modules/next/dist/bin/next dev",
     "build": "next build --no-lint",
-    "start": "next start",
+    "start": "node -r dotenv/config ./node_modules/next/dist/bin/next start",
     "lint": "next lint"
   },
   "dependencies": {
