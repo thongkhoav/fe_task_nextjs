@@ -1,28 +1,27 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { set, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useAppContext } from "@/app/providers/app-provider";
 import { ToastError, ToastInfo, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { axiosBase } from "@/app/common/util";
 import { forgotPasswordApi } from "@/apiRequests/auth/login.api";
-import { Toast } from "@heroui/react";
+import { AuthShell } from "@/components/app/auth-shell";
+import { ArrowLeft, CheckCircle2, LoaderCircle, Mail } from "lucide-react";
 
 export default function ResetPassword() {
   const [isSending, setIsSending] = useState(false);
@@ -61,58 +60,54 @@ export default function ResetPassword() {
       ToastInfo("You are already logged in, redirecting...");
       router.push("/rooms");
     }
-  }, []);
+  }, [router, user]);
 
   return (
-    <div className=" h-screen flex items-center justify-center">
-      <div className="min-w-[400px] p-5 rounded-md border border-gray-200 shadow-md bg-white">
-        <Form {...emailForm}>
-          <form
-            onSubmit={emailForm.handleSubmit(onSubmitSendMail)}
-            className="space-y-8"
-          >
-            <FormDescription>
-              <span className="block text-2xl font-bold text-center">
-                Forgot password
-              </span>
-            </FormDescription>
-
-            <FormField
-              control={emailForm.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="Input your email..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <button
-              type="submit"
-              disabled={isSending}
-              className={`py-2 rounded-sm w-full text-white bg-blue-600 ${
-                emailSent && "bg-green-600"
-              } hover:opacity-90`}
-            >
-              {emailSent ? "Resend" : "Send reset link"}
-            </button>
-          </form>
-        </Form>
-
-        <Link
-          href="/login"
-          className="block mt-5 w-full text-center underline cursor-pointer"
-        >
-          Login
+    <AuthShell
+      eyebrow="Account recovery"
+      title="Reset your password"
+      description="Enter your account email and we'll send you a secure reset link."
+      footer={
+        <Link href="/login" className="inline-flex items-center gap-2 font-semibold text-indigo-600 hover:text-indigo-700">
+          <ArrowLeft size={16} /> Back to sign in
         </Link>
-      </div>
-    </div>
+      }
+    >
+      <Form {...emailForm}>
+        <form onSubmit={emailForm.handleSubmit(onSubmitSendMail)} className="space-y-5">
+          {emailSent && (
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">
+              <CheckCircle2 size={20} className="mt-0.5 shrink-0" />
+              <span>Check your inbox for the reset link. You can resend it if needed.</span>
+            </div>
+          )}
+          <FormField
+            control={emailForm.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-slate-700">Email address</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input type="email" autoComplete="email" placeholder="you@example.com" className="pl-10" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" disabled={isSending} className="w-full">
+            {isSending ? (
+              <><LoaderCircle size={18} className="animate-spin" />Sending link...</>
+            ) : emailSent ? (
+              "Resend reset link"
+            ) : (
+              "Send reset link"
+            )}
+          </Button>
+        </form>
+      </Form>
+    </AuthShell>
   );
 }

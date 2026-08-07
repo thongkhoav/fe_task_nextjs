@@ -1,11 +1,13 @@
 import { axiosBase } from "@/app/common/util/axios/axiosBase";
-export interface TokenPair {
-  access_token: string;
-  refresh_token: string;
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: "ADMIN" | "USER";
 }
 
 export const loginApi = async (email: string, password: string) => {
-  return await axiosBase.post<TokenPair>("/auth/signin", {
+  return await axiosBase.post<AuthenticatedUser>("/auth/signin", {
     email,
     password,
   });

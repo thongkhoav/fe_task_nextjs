@@ -59,16 +59,14 @@ export const firebaseCloudMessaging = {
           //return the FCM token after saving it
           return fcm_token;
         } else {
-          console.log("Token not found");
-
           return null;
         }
       } else {
         console.error("Notification permission denied");
         return null;
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
+      console.error("Failed to initialize Firebase messaging");
       return null;
     }
   },
@@ -81,10 +79,9 @@ export const firebaseCloudMessaging = {
       if (currentToken) {
         await deleteToken(messaging);
         localStorage.removeItem(LocalStorageFcmKey);
-        console.log("FCM token deleted successfully");
       }
-    } catch (error) {
-      console.error("Error deleting FCM token:", error);
+    } catch {
+      console.error("Failed to delete the Firebase messaging token");
     }
   },
 };

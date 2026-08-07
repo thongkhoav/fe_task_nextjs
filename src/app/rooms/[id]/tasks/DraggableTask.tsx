@@ -26,11 +26,9 @@ export default function DraggableTask({ item, children, canDrag }: Props) {
         }
         dragRef(node);
       }}
-      className={`${isDragging ? "opacity-50" : ""} ${
-        canDrag ? "cursor-move" : ""
-      } 
-        bg-white dark:bg-gray-800 rounded-lg p-1 shadow-md mb-2 px-1 
-      `}
+      className={`${isDragging ? "scale-[0.98] opacity-50" : ""} ${
+        canDrag ? "cursor-grab active:cursor-grabbing" : ""
+      } rounded-xl border border-slate-200/80 bg-white shadow-sm transition hover:border-indigo-200 hover:shadow-md`}
     >
       {children}
     </div>

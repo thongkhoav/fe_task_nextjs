@@ -8,19 +8,19 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAppContext } from "@/app/providers/app-provider";
 import { ToastError, ToastSuccess } from "@/app/common/util/toast";
 import { useRouter } from "next/navigation";
 import { signupApi } from "@/apiRequests/auth/signup.api";
 import { useState } from "react";
 import Link from "next/link";
+import { ArrowRight, LoaderCircle, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { AuthShell } from "@/components/app/auth-shell";
 
 const formSchema = z.object({
   email: z.string().min(2).max(30),
@@ -29,7 +29,6 @@ const formSchema = z.object({
 });
 
 export default function SignUpPage() {
-  const { login } = useAppContext();
   const router = useRouter();
   const [loadingSignup, setLoadingSignup] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
@@ -42,94 +41,97 @@ export default function SignUpPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    setLoadingSignup(true);
+
     try {
-      console.log(values);
-      setLoadingSignup(true);
       await signupApi({
         email: values.email,
         password: values.password,
         fullName: values.fullName,
       });
-      setLoadingSignup(false);
       ToastSuccess("Sign up success. Please login");
       router.push("/login");
       router.refresh();
     } catch (error: any) {
-      console.log(error);
-
-      ToastError(error.response.data.message);
+      ToastError(error?.response?.data?.message || "Sign up failed");
+    } finally {
+      setLoadingSignup(false);
     }
   }
 
   return (
-    <div className=" h-screen flex items-center justify-center">
-      <div className="min-w-[400px] p-5 rounded-md border border-gray-200 shadow-md bg-white">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormDescription>
-              <span className="block text-center text-2xl font-bold">
-                Sign up
-              </span>
-            </FormDescription>
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="Input email..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Full name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Input full name..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      placeholder="Input password..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full" disabled={loadingSignup}>
-              Submit
-            </Button>
-          </form>
-        </Form>
-        <Link
-          href="/login"
-          className="block mt-5 w-full text-center underline cursor-pointer"
-        >
-          Login
-        </Link>
-      </div>
-    </div>
+    <AuthShell
+      eyebrow="Get started"
+      title="Create your account"
+      description="Set up your profile and start organizing work with your team."
+      footer={
+        <span>
+          Already have an account?{" "}
+          <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            Sign in
+          </Link>
+        </span>
+      }
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+          <FormField
+            control={form.control}
+            name="fullName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-slate-700">Full name</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <UserRound size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input autoComplete="name" placeholder="Your full name" className="pl-10" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-slate-700">Email address</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input type="email" autoComplete="email" placeholder="you@example.com" className="pl-10" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-slate-700">Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <LockKeyhole size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Input type="password" autoComplete="new-password" placeholder="At least 6 characters" className="pl-10" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="mt-2 w-full" disabled={loadingSignup}>
+            {loadingSignup ? (
+              <><LoaderCircle size={18} className="animate-spin" />Creating account...</>
+            ) : (
+              <>Create account<ArrowRight size={18} /></>
+            )}
+          </Button>
+        </form>
+      </Form>
+    </AuthShell>
   );
 }

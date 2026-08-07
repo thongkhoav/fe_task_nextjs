@@ -4,8 +4,6 @@ export default function NotificationsLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex flex-col justify-center w-full max-w-[2000px]">
-      {children}
-    </div>
+    <div className="flex min-h-[calc(100vh-73px)] w-full flex-col">{children}</div>
   );
 }

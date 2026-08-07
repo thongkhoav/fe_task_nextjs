@@ -1,24 +1,19 @@
 "use client";
 
-import { loginApi, TokenPair } from "@/apiRequests/auth/login.api";
+import { AuthenticatedUser, loginApi } from "@/apiRequests/auth/login.api";
 import { HeroUIProvider, Tooltip } from "@heroui/react";
-import { use, useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 
 import { createContext } from "react";
-import { jwtDecode } from "jwt-decode";
 import ToastProvider from "./toast-provider";
-import { clearCookieLocal } from "../common/util/cookie-action";
 import useAxiosPrivate from "../common/util/axios/useAxiosPrivate";
-import { ToastError, ToastInfo, ToastSuccess } from "../common/util/toast";
-import { CircleUserRound, LogOut, Pencil } from "lucide-react";
+import { ToastError, ToastSuccess } from "../common/util/toast";
+import { LogOut, Pencil } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { firebaseCloudMessaging } from "../config/firebase";
-import { getMessaging, onMessage } from "firebase/messaging";
-import { NotificationContent } from "../config/noti-toast-element";
-import { log } from "console";
 import NotificationProvider from "./notification-provider";
-import getAuthentication from "../(auth)/actions/get-authentication";
+import authenticated from "../(auth)/actions/authenticated";
 import { socket } from "../socket/socket";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -41,19 +36,10 @@ import {
   Button,
 } from "@heroui/react";
 import { Input } from "@/components/ui/input";
-import { axiosBase } from "../common/util";
+import { BrandMark } from "@/components/app/brand-mark";
+import { Avatar } from "@/components/app/avatar";
 
-export enum RoleType {
-  ADMIN = "ADMIN",
-  USER = "USER",
-}
-
-type User = {
-  id: string;
-  email: string;
-  fullName: string;
-  role: RoleType;
-};
+type User = AuthenticatedUser;
 
 const editUserSchema = z.object({
   fullName: z.string().min(2).max(30),
@@ -61,20 +47,16 @@ const editUserSchema = z.object({
 
 const AppContext = createContext<{
   user: User | null;
-  tokens: TokenPair | null;
-  setUser: (user: TokenPair | null) => void;
+  setUser: (user: User | null) => void;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  loginGoogle: () => Promise<void>;
 }>({
   user: null,
-  tokens: null,
   setUser: () => {},
   isAuthenticated: false,
   login: async () => {},
   logout: async () => {},
-  loginGoogle: async () => {},
 });
 
 export const useAppContext = () => {
@@ -100,7 +82,6 @@ export default function AppProvider({
     onOpenChange: onOpenChangeEditUser,
     onClose: onCloseEditUser,
   } = useDisclosure();
-  const [tokens, setTokens] = useState<TokenPair | null>(null);
   const isAuthenticated = Boolean(user);
   const axiosPrivate = useAxiosPrivate();
   const router = useRouter();
@@ -111,83 +92,30 @@ export default function AppProvider({
     },
   });
 
-  const setUser = useCallback((tokens: TokenPair | null) => {
-    if (tokens) {
-      // localStorage.setItem("task_user", JSON.stringify(tokens));
-      const decodedToken: any = jwtDecode(tokens?.access_token);
-      if (decodedToken) {
-        const user = {
-          id: decodedToken.sub,
-          email: decodedToken.email,
-          fullName: decodedToken.fullName,
-          role: decodedToken.role,
-        };
-        setTokens(tokens);
-        setUserState(user);
-        return;
-      }
-    }
-    // localStorage.removeItem("task_user");
-    setTokens(null);
-    setUserState(null);
+  const setUser = useCallback((nextUser: User | null) => {
+    setUserState(nextUser);
   }, []);
 
-  const handleLogin = useCallback(
-    async (email: string, password: string) => {
-      if (!email || !password) return;
+  const handleLogin = useCallback(async (email: string, password: string) => {
+    if (!email || !password) return;
 
-      const response = await loginApi(email, password);
-      console.log({
-        type: "handleLogin",
-        response,
-      });
-      if (response) {
-        const { data } = response;
-        const decodedToken: any = jwtDecode(data?.access_token);
-        if (decodedToken) {
-          const newUser = {
-            id: decodedToken.sub,
-            email: decodedToken.email,
-            fullName: decodedToken.fullName,
-            role: decodedToken.role,
-          };
-          // localStorage.setItem("task_user", JSON.stringify(data));
-          console.log(newUser);
-
-          setTokens(data);
-          setUserState(newUser);
-          // setCookieLocal(data);
-        } else {
-          setUserState(null);
-        }
-      }
-    },
-    [setUser]
-  );
-
-  const handleLoginGoogle = async () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_SERVER_HOST}/api/v1/auth/google`;
-  };
+    const response = await loginApi(email, password);
+    setUserState(response.data);
+    if (!socket.connected) socket.connect();
+  }, []);
 
   const handleLogout = async () => {
     try {
-      // const task_user = localStorage.getItem("task_user");
-      // const tokens = task_user ? JSON.parse(task_user) : null;
-      if (tokens) {
-        await axiosPrivate.post("/auth/logout", {
-          fcmToken: await firebaseCloudMessaging?.tokenInlocalStorage(),
-        });
-        setUserState(null);
-        setTokens(null);
-        clearCookieLocal();
+      await axiosPrivate.post("/auth/logout", {
+        fcmToken: await firebaseCloudMessaging?.tokenInlocalStorage(),
+      });
+      setUserState(null);
+      socket.disconnect();
+      await firebaseCloudMessaging.deleteToken();
 
-        await firebaseCloudMessaging.deleteToken();
-
-        ToastSuccess("Sign out success");
-        router.push("/login");
-      }
+      ToastSuccess("Sign out success");
+      router.push("/login");
     } catch (error: any) {
-      console.log(error);
       ToastError(error.message);
     }
   };
@@ -197,41 +125,20 @@ export default function AppProvider({
       top: 0,
       behavior: "smooth",
     });
-    // if ("serviceWorker" in navigator) {
-    //   navigator.serviceWorker.addEventListener("message", (event) =>
-    //     console.log("event for the service worker", event)
-    //   );
-    // }
-    socket.connect();
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-    });
-
     const effectFunc = async () => {
-      const cookieUser = await getAuthentication();
-      console.log("cookieUser", cookieUser);
-
-      if (cookieUser && cookieUser?.access_token) {
-        const decodedToken: any = jwtDecode(cookieUser?.access_token);
-        if (decodedToken) {
-          // localStorage.setItem("task_user", JSON.stringify(cookieUser));
-          try {
-            const userResponse = await axiosPrivate.get("/auth/me");
-            setUserState(userResponse?.data);
-            setTokens(cookieUser);
-            return;
-          } catch (error) {
-            console.log("Error fetching user data:", error);
-            setUserState(null);
-            setTokens(null);
-            clearCookieLocal();
-            return;
-          }
-        }
-      } else {
-        localStorage.removeItem("task_user");
+      if (!(await authenticated())) {
         setUserState(null);
-        setTokens(null);
+        socket.disconnect();
+        return;
+      }
+
+      try {
+        const userResponse = await axiosPrivate.get<User>("/auth/me");
+        setUserState(userResponse.data);
+        if (!socket.connected) socket.connect();
+      } catch {
+        setUserState(null);
+        socket.disconnect();
       }
     };
     effectFunc();
@@ -247,8 +154,6 @@ export default function AppProvider({
 
   const onUpdateUser = async (values: z.infer<typeof editUserSchema>) => {
     try {
-      console.log(values);
-      if (!tokens) return;
       await axiosPrivate.put(`/user`, {
         fullName: values.fullName,
       });
@@ -260,7 +165,6 @@ export default function AppProvider({
       ToastSuccess("Update user success");
       onCloseEditUser();
     } catch (error: any) {
-      console.log(error);
       ToastError(error.response?.data?.message || error.message);
     }
   };
@@ -271,83 +175,93 @@ export default function AppProvider({
         <AppContext.Provider
           value={{
             user,
-            tokens,
             setUser,
             isAuthenticated,
             login: handleLogin,
             logout: handleLogout,
-            loginGoogle: handleLoginGoogle,
           }}
         >
           {user && isAuthenticated && (
-            <div className="w-full flex justify-center">
-              <div className="flex justify-between gap-5 px-2 min-w-80 py-2 bg-slate-200 rounded-md mt-5">
-                <Modal
-                  isOpen={isOpenEditUser}
-                  onOpenChange={onOpenChangeEditUser}
-                  placement="center"
-                >
-                  <ModalContent>
-                    {() => (
-                      <Form {...editUserForm}>
-                        <form
-                          onSubmit={editUserForm.handleSubmit(onUpdateUser)}
-                        >
-                          <ModalHeader className="flex flex-col gap-1">
-                            Edit user
-                          </ModalHeader>
-                          <ModalBody>
-                            <FormField
-                              control={editUserForm.control}
-                              name="fullName"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Full name</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      placeholder="Input full name..."
-                                      {...field}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </ModalBody>
-                          <ModalFooter>
-                            <Button
-                              color="danger"
-                              variant="light"
-                              onPress={onCloseEditUser}
-                            >
-                              Close
-                            </Button>
-                            <Button color="primary" type="submit">
-                              Save
-                            </Button>
-                          </ModalFooter>
-                        </form>
-                      </Form>
-                    )}
-                  </ModalContent>
-                </Modal>
-                <Tooltip content={user?.email}>
-                  <div className="text-lg font-bold flex items-center gap-1 cursor-pointer">
-                    <Pencil
-                      size={20}
-                      className="hover:cursor-pointer"
+            <>
+              <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur">
+                <div className="app-container flex h-[72px] items-center justify-between gap-4">
+                  <BrandMark />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
                       onClick={handleOpenEditUser}
-                    />
-                    {user.fullName}
+                      className="flex min-h-11 items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
+                      aria-label="Edit profile"
+                    >
+                      <Avatar name={user.fullName} />
+                      <span className="hidden min-w-0 sm:block">
+                        <span className="block max-w-44 truncate text-sm font-semibold text-slate-900">
+                          {user.fullName}
+                        </span>
+                        <span className="block max-w-44 truncate text-xs text-slate-500">
+                          {user.email}
+                        </span>
+                      </span>
+                      <Pencil size={15} className="hidden text-slate-400 sm:block" aria-hidden="true" />
+                    </button>
+                    <Tooltip content="Sign out">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="icon-button hover:bg-rose-50 hover:text-rose-600"
+                        aria-label="Sign out"
+                      >
+                        <LogOut size={20} />
+                      </button>
+                    </Tooltip>
                   </div>
-                </Tooltip>
-                <Tooltip content="Sign out">
-                  <button onClick={handleLogout}>
-                    <LogOut size={25} />
-                  </button>
-                </Tooltip>
-              </div>
-            </div>
+                </div>
+              </header>
+
+              <Modal
+                isOpen={isOpenEditUser}
+                onOpenChange={onOpenChangeEditUser}
+                placement="center"
+              >
+                <ModalContent>
+                  {() => (
+                    <Form {...editUserForm}>
+                      <form onSubmit={editUserForm.handleSubmit(onUpdateUser)}>
+                        <ModalHeader className="flex flex-col gap-1 text-slate-950">
+                          Edit profile
+                          <span className="text-sm font-normal text-slate-500">
+                            Update the name your teammates see.
+                          </span>
+                        </ModalHeader>
+                        <ModalBody>
+                          <FormField
+                            control={editUserForm.control}
+                            name="fullName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Full name</FormLabel>
+                                <FormControl>
+                                  <Input placeholder="Your full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </ModalBody>
+                        <ModalFooter>
+                          <Button variant="light" onPress={onCloseEditUser}>
+                            Cancel
+                          </Button>
+                          <Button color="primary" type="submit">
+                            Save changes
+                          </Button>
+                        </ModalFooter>
+                      </form>
+                    </Form>
+                  )}
+                </ModalContent>
+              </Modal>
+            </>
           )}
           <NotificationProvider>{children}</NotificationProvider>
         </AppContext.Provider>
