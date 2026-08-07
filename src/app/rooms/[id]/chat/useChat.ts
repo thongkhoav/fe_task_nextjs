@@ -11,7 +11,7 @@ interface RoomDetailResponse {
   data: RoomDetail;
 }
 
-export function useChat(roomId: string, userId: string) {
+export function useChat(roomId: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const axiosPrivate = useAxiosPrivate();
   const router = useRouter();
@@ -20,33 +20,31 @@ export function useChat(roomId: string, userId: string) {
   useEffect(() => {
     if (!roomId) return;
 
+    let active = true;
+    const joinRoom = () => socket.emit("joinRoom", roomId);
+    const handleChatHistory = (history: Message[]) => {
+      setMessages(history);
+      scrollMessageList();
+    };
+    const handleNewMessage = (message: Message) => {
+      setMessages((previousMessages) => [...previousMessages, message]);
+      scrollMessageList();
+    };
+
     const loadRoomAndConnectSocket = async () => {
-      console.log("Loading room and connecting to socket for roomId:", roomId);
       try {
         const roomData = await axiosPrivate.get<RoomDetailResponse>(
-          "/room/" + roomId
+          "/room/" + roomId,
         );
         const detail = roomData?.data?.data;
+        if (!active) return;
         setRoomDetail(detail);
-        if (!socket.hasListeners("newMessage")) {
-          // Join the room
-          socket.emit("joinRoom", roomId);
-
-          // Load history
-          socket.on("chatHistory", (history) => {
-            setMessages(history);
-            console.log({ history });
-            scrollMessageList();
-          });
-
-          // Listen for new messages
-          socket.on("newMessage", (msg) => {
-            console.log("newMessage", msg);
-            setMessages((prev) => [...prev, msg]);
-            scrollMessageList();
-          });
-        }
+        socket.on("connect", joinRoom);
+        socket.on("chatHistory", handleChatHistory);
+        socket.on("newMessage", handleNewMessage);
+        if (socket.connected) joinRoom();
       } catch (err: any) {
+        if (!active) return;
         console.error(err);
         ToastError(err?.response?.data?.message || "Failed to load room");
         router.push("/rooms");
@@ -56,16 +54,17 @@ export function useChat(roomId: string, userId: string) {
     loadRoomAndConnectSocket();
 
     return () => {
-      console.log("Cleaning up socket listeners for roomId:", roomId);
-      socket.off("chatHistory");
-      socket.off("newMessage");
-      socket.emit("leaveRoom", roomId);
+      active = false;
+      socket.off("connect", joinRoom);
+      socket.off("chatHistory", handleChatHistory);
+      socket.off("newMessage", handleNewMessage);
+      if (socket.connected) socket.emit("leaveRoom", roomId);
     };
-  }, [roomId]);
+  }, [axiosPrivate, roomId, router]);
 
   // Send message
   const sendMessage = (content: string) => {
-    socket.emit("sendMessage", { roomId, userId, content });
+    socket.emit("sendMessage", { roomId, content });
   };
 
   const scrollMessageList = () => {

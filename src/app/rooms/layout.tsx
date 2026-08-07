@@ -8,7 +8,7 @@ export default function RoomLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex flex-col justify-center w-full min-h-[calc(100vh-128px)]">
+    <div className="flex min-h-[calc(100vh-73px)] w-full flex-col">
       <DndProvider backend={HTML5Backend}>{children}</DndProvider>
     </div>
   );

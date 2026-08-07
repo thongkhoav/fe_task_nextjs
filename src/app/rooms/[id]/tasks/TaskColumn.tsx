@@ -16,6 +16,18 @@ export default function TaskColumn({
   children: React.ReactNode;
   badgeColor: string;
 }) {
+  const statusLabel: Record<string, string> = {
+    TODO: "To do",
+    PROCESSING: "In progress",
+    DONE: "Completed",
+  };
+
+  const statusDot: Record<string, string> = {
+    TODO: "bg-amber-500",
+    PROCESSING: "bg-indigo-500",
+    DONE: "bg-emerald-500",
+  };
+
   const [, dropRef] = useDrop({
     accept: "TASK",
     drop: (draggedItem: { id: string; status: string }) => {
@@ -30,15 +42,21 @@ export default function TaskColumn({
       ref={(node) => {
         dropRef(node);
       }}
-      className="flex flex-col p-4 bg-gray-100 rounded-md shadow-md flex-1 gap-2"
+      className="flex min-h-[32rem] min-w-[min(86vw,22rem)] snap-start flex-col gap-3 rounded-2xl border border-slate-200/80 bg-slate-100/70 p-3 sm:min-w-[21rem] lg:min-w-0 lg:flex-1"
     >
-      <h2
-        className={`text-lg font-semibold mb-2 ${badgeColor} px-2 py-1 rounded`}
-      >
-        {status} ({tasks.length})
-      </h2>
+      <div className="flex items-center justify-between rounded-xl bg-white px-3.5 py-3 shadow-sm">
+        <h2 className="flex items-center gap-2.5 text-sm font-bold text-slate-800">
+          <span className={`size-2.5 rounded-full ${statusDot[status] || "bg-slate-400"}`} />
+          {statusLabel[status] || status}
+        </h2>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${badgeColor}`}>
+          {tasks.length}
+        </span>
+      </div>
       {tasks.length === 0 && (
-        <div className="text-center text-gray-500">No tasks in this column</div>
+        <div className="flex min-h-40 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white/50 px-6 text-center text-sm leading-6 text-slate-400">
+          Drop a task here or create a new one.
+        </div>
       )}
       {children}
     </div>

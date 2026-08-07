@@ -2,7 +2,7 @@
 
 ### Backend source code: https://github.com/thongkhoav/be_task_nestjs
 
-- To run dev: npm run dev
+- To run dev: set `PORT` in `.env` if needed (default: `3000`), then run `npm run dev`
 - File to add before run the app:
   - Complete .env including firebase messenging
   - public/firebase-messaging-sw.js

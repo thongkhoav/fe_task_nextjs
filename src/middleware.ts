@@ -10,7 +10,6 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   // const isAuthen = await authenticated();
   const cookieCredential = request.cookies.get("TaskApp_Tokens")?.value;
-  console.log("cookie auth:", cookieCredential);
   const isAuthenticated = !!cookieCredential;
   // Un-authen will be redirect to login
   if (

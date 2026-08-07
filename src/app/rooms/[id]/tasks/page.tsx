@@ -1,22 +1,20 @@
 "use client";
 import React, { useState, useEffect, FormEvent } from "react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
-  Star,
   Settings,
-  CircleUserRound,
   Calendar,
   ChevronRight,
-  CircleChevronLeft,
   Copy,
   Crown,
   RefreshCcw,
   CircleX,
-  Mail,
   LogOut,
-  Group,
   ChevronLeft,
+  Plus,
+  ListFilter,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { now, getLocalTimeZone, fromDate } from "@internationalized/date";
@@ -32,9 +30,7 @@ import {
   ModalFooter,
   useDisclosure,
   Button,
-  user,
   Textarea,
-  Spinner,
   Popover,
   PopoverTrigger,
   PopoverContent,
@@ -44,7 +40,6 @@ import { DatePicker } from "@heroui/date-picker";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -61,11 +56,13 @@ import {
   ToastWarning,
 } from "@/app/common/util/toast";
 import { TaskStatus } from "@/app/common/type/task-status.type";
-import { Style } from "@/app/common/util/style";
 import { socket } from "@/app/socket/socket";
 import DraggableTask from "./DraggableTask";
 import TaskColumn from "./TaskColumn";
 import { timeBeforeDeadline } from "@/lib/utils";
+import { RoomTabs } from "@/components/app/room-tabs";
+import { EmptyState, PageLoading } from "@/components/app/page-state";
+import { Avatar } from "@/components/app/avatar";
 
 export interface Task {
   id: string;
@@ -113,7 +110,6 @@ const addTaskSchema = z.object({
   title: z.string().min(2).max(30),
   description: z.string().min(6).max(100),
   dueDate: z.string().refine((value) => {
-    console.log(new Date(value).getTime(), Date.now());
     return (
       new Date(value).getTime() > new Date().getTime() + timeBeforeDeadline
     ); // Must be at least 30 minutes from now
@@ -129,7 +125,6 @@ const updateTaskSchema = z.object({
   userId: z.string().optional(),
 });
 
-const today = new Date();
 const updateRoomSchema = z.object({
   name: z.string().min(3).max(30),
   description: z.string().min(3).max(100),
@@ -154,7 +149,7 @@ function RoomTasksPage() {
   const [inProgressTasks, setInProgressTasks] = useState<Task[]>([]);
   const [doneTasks, setDoneTasks] = useState<Task[]>([]);
   const [selectedUpdateTask, setSelectedUpdateTask] = useState<Task | null>(
-    null
+    null,
   );
   // key is taskId, value is status
   const [statusUpdateTask, setStatusUpdateTask] = useState<
@@ -231,6 +226,21 @@ function RoomTasksPage() {
     // console.log(user);
     if (!user) return;
 
+    let active = true;
+    const joinTaskRoom = () => socket.emit("join_room", id);
+    const handleTaskUpdated = (task: Task) => {
+      if (task.room.id !== id) return;
+      setRoomTaskList((prevTasks) =>
+        prevTasks.map((currentTask) =>
+          currentTask.id === task.id ? task : currentTask,
+        ),
+      );
+      setStatusUpdateTask((previousStatuses) => ({
+        ...previousStatuses,
+        [task.id]: task.status,
+      }));
+    };
+
     const fetchData = async () => {
       if (!id) return;
 
@@ -241,29 +251,18 @@ function RoomTasksPage() {
         await loadMembers();
         await loadRoomTasks();
       } catch (err: any) {
+        if (!active) return;
         console.error(err);
         ToastError(err.response?.data?.message || "Failed to fetch room data");
         router.push("/rooms");
       } finally {
+        if (!active) return;
         setLoading(false);
 
-        // Join the room via socket
-        socket.emit("join_room", id);
+        socket.on("connect", joinTaskRoom);
+        if (socket.connected) joinTaskRoom();
 
-        // Listen for task updates from the socket
-        socket.on("task_updated", (task: Task) => {
-          console.log("Task updated from socket:", task);
-          if (task.room.id !== id) return; // Only update tasks for the current room
-          console.log("Task updated:", task);
-          setRoomTaskList((prevTasks) =>
-            prevTasks.map((t) => (t.id === task.id ? task : t))
-          );
-          // Update the statusUpdateTask state
-          setStatusUpdateTask((prev) => ({
-            ...prev,
-            [task.id]: task.status,
-          }));
-        });
+        socket.on("task_updated", handleTaskUpdated);
       }
     };
 
@@ -271,7 +270,9 @@ function RoomTasksPage() {
 
     return () => {
       // Clean up the socket listener when the component unmounts
-      socket.off("task_updated");
+      active = false;
+      socket.off("connect", joinTaskRoom);
+      socket.off("task_updated", handleTaskUpdated);
     };
   }, [user]);
 
@@ -279,13 +280,13 @@ function RoomTasksPage() {
   useEffect(() => {
     if (roomTaskList.length > 0) {
       const todo = roomTaskList.filter(
-        (task) => task.status === TaskStatus.TODO
+        (task) => task.status === TaskStatus.TODO,
       );
       const inProgress = roomTaskList.filter(
-        (task) => task.status === TaskStatus.PROCESSING
+        (task) => task.status === TaskStatus.PROCESSING,
       );
       const done = roomTaskList.filter(
-        (task) => task.status === TaskStatus.DONE
+        (task) => task.status === TaskStatus.DONE,
       );
 
       setTodoTasks(todo);
@@ -297,7 +298,7 @@ function RoomTasksPage() {
   const loadRoom = async () => {
     try {
       const roomData = await axiosPrivate.get<RoomDetailResponse>(
-        "/room/" + id
+        "/room/" + id,
       );
       const detail = roomData.data.data;
       setRoomDetail(detail);
@@ -321,7 +322,6 @@ function RoomTasksPage() {
         return;
       }
 
-      console.log(values);
       await axiosPrivate.put(`/room/${id}`, {
         name: values.name,
         description: values.description,
@@ -356,7 +356,7 @@ function RoomTasksPage() {
           params: {
             includeOwner: true,
           },
-        }
+        },
       );
       setMembers(res.data.data);
     } catch (err) {
@@ -388,7 +388,6 @@ function RoomTasksPage() {
 
   async function onEditTask(values: z.infer<typeof updateTaskSchema>) {
     try {
-      console.log("editTask task:", values);
       if (!selectedUpdateTask) return;
 
       // Updated: User can change task info without changing due date
@@ -425,7 +424,7 @@ function RoomTasksPage() {
       "dueDate",
       task?.dueDate
         ? task?.dueDate
-        : new Date(new Date().getTime() + timeBeforeDeadline).toISOString()
+        : new Date(new Date().getTime() + timeBeforeDeadline).toISOString(),
     );
     updateTaskForm.setValue("userId", task?.user?.id);
     setSelectedUpdateTask(task);
@@ -445,7 +444,7 @@ function RoomTasksPage() {
         return;
       }
       const isSameStatus = roomTaskList.find(
-        (task) => task.id === taskId && task.status === status
+        (task) => task.id === taskId && task.status === status,
       );
       if (isSameStatus) {
         ToastWarning("Task status is already " + status);
@@ -459,7 +458,6 @@ function RoomTasksPage() {
       socket.emit("update_task", {
         taskId,
         status,
-        curUserId: user?.id,
       });
 
       ToastSuccess("Task status updated to " + status);
@@ -481,13 +479,12 @@ function RoomTasksPage() {
 
   const onDragChangeTaskStatus = async (taskId: string, status: TaskStatus) => {
     try {
-      console.log("Drag change task status:", taskId, status);
       if (!taskId || !status) {
         console.error("Invalid form data");
         return;
       }
       const isSameStatus = roomTaskList.find(
-        (task) => task.id === taskId && task.status === status
+        (task) => task.id === taskId && task.status === status,
       );
       if (isSameStatus) {
         ToastWarning("Task status is already " + status);
@@ -501,7 +498,6 @@ function RoomTasksPage() {
       socket.emit("update_task", {
         taskId,
         status,
-        curUserId: user?.id,
       });
 
       ToastSuccess("Task status updated to " + status);
@@ -512,8 +508,6 @@ function RoomTasksPage() {
 
   async function onAddTask(values: z.infer<typeof addTaskSchema>) {
     try {
-      console.log("Add task:", values);
-
       await axiosPrivate.post("/task", {
         title: values.title,
         description: values.description,
@@ -556,19 +550,16 @@ function RoomTasksPage() {
   // add to state statusUpdateTask
   const onChangeSelectStatus = (
     e: FormEvent<HTMLSelectElement>,
-    taskId: string
+    taskId: string,
   ) => {
-    console.log("Selected status:", e.currentTarget.value);
     const status = e.currentTarget.value as TaskStatus;
     setStatusUpdateTask((prev) => ({
       ...prev,
       [taskId]: status,
     }));
-    console.log("Status update task:", statusUpdateTask);
   };
 
   const handleSelectDateRange = async (ranges: any) => {
-    console.log("Selected date range:", ranges);
     setSelectionRange(ranges.selection);
   };
 
@@ -641,27 +632,27 @@ function RoomTasksPage() {
   // ** Render UI **
 
   if (loading) {
-    return <Spinner />;
+    return <PageLoading label="Loading room workspace" />;
   }
 
   if (!roomDetail) {
     return (
-      <div className="text-center">
-        <h1 className="text-red-500 text-lg">Not found group</h1>
+      <div className="app-container py-16 text-center">
+        <h1 className="text-lg font-bold text-slate-900">Room not found</h1>
         <Link
-          href="/home"
-          className="text-blue-500 hover:underline cursor-pointer block"
+          href="/rooms"
+          className="mt-3 block font-semibold text-indigo-600 hover:text-indigo-700"
         >
-          Home
+          Back to rooms
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col w-full mb-10 px-4">
-      <div className="my-4 flex justify-between border rounded-md p-4 shadow-sm bg-white container mx-auto">
-        <div className="flex justify-start gap-2 ">
+    <main className="app-container flex w-full min-w-0 flex-col gap-5 overflow-hidden pb-12 pt-6 sm:pt-8">
+      <section className="surface-card flex min-w-0 flex-col gap-6 overflow-hidden p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
           {/* Update room modal */}
           <Modal
             isOpen={isOpenUpdateRoom}
@@ -754,7 +745,7 @@ function RoomTasksPage() {
                           {modalTaskDetail?.dueDate
                             ? format(
                                 new Date(modalTaskDetail?.dueDate),
-                                "MMMM dd, yyyy hh:mm a"
+                                "MMMM dd, yyyy hh:mm a",
                               )
                             : "No due date"}
                         </div>
@@ -797,19 +788,36 @@ function RoomTasksPage() {
             <Link
               href="/rooms"
               passHref
-              className="h-full flex justify-center rounded-sm px-2 items-center bg-slate-100 hover:bg-slate-200"
+              className="icon-button shrink-0 bg-slate-50"
+              aria-label="Back to rooms"
             >
-              <ChevronLeft size={25} />
+              <ChevronLeft size={21} />
             </Link>
           </Tooltip>
-          <div className="flex flex-col gap-2">
-            <p className="text-2xl font-bold flex gap-2 items-center">
-              Group "{roomDetail.roomName}"
-              <Settings
-                onClick={onOpenChangeUpdateRoom}
-                size={25}
-                className="cursor-pointer"
-              />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">
+              Room workspace
+            </p>
+            <div className="mt-2 flex min-w-0 flex-col items-start gap-3 sm:flex-row sm:justify-between">
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+                  {roomDetail.roomName}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  {roomDetail.roomDescription}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 sm:self-start">
+                {user?.id === roomDetail.owner.id && (
+                  <button
+                    type="button"
+                    onClick={onOpenChangeUpdateRoom}
+                    className="icon-button"
+                    aria-label="Edit room"
+                  >
+                    <Settings size={19} />
+                  </button>
+                )}
               {/* Owner remove this room */}
               {user?.id === roomDetail?.owner?.id && (
                 <Popover
@@ -818,30 +826,32 @@ function RoomTasksPage() {
                   placement="right"
                 >
                   <PopoverTrigger>
-                    <CircleX
-                      color={Style.DANGER}
-                      size={25}
-                      className="cursor-pointer"
-                    />
+                    <button
+                      type="button"
+                      className="icon-button hover:bg-rose-50 hover:text-rose-600"
+                      aria-label="Delete room"
+                    >
+                      <CircleX size={20} />
+                    </button>
                   </PopoverTrigger>
                   <PopoverContent>
-                    <div className="px-1 py-2">
-                      <div className="text-small font-bold">
-                        Are you sure to remove this room?
-                      </div>
-                      <span>This will remove all members and tasks!</span>
-                      <div className="flex justify-end gap-2">
+                    <div className="w-72 p-3">
+                      <div className="font-bold text-slate-900">Delete this room?</div>
+                      <p className="mt-1 text-sm leading-5 text-slate-500">
+                        All members and tasks in this room will be removed.
+                      </p>
+                      <div className="mt-4 flex justify-end gap-2">
                         <button
                           onClick={onRemoveRoom}
-                          className="px-3 py-1 bg-red-400 rounded-sm text-sm"
+                          className="min-h-9 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-white hover:bg-rose-700"
                         >
-                          Yes
+                          Delete room
                         </button>
                         <button
                           onClick={() => setOpenRemoveRoom(false)}
-                          className="px-3 py-1 bg-gray-200 rounded-sm text-sm"
+                          className="min-h-9 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200"
                         >
-                          No
+                          Cancel
                         </button>
                       </div>
                     </div>
@@ -856,63 +866,62 @@ function RoomTasksPage() {
                   placement="right"
                 >
                   <PopoverTrigger>
-                    <LogOut
-                      color={Style.DANGER}
-                      size={25}
-                      className="cursor-pointer"
-                    />
+                    <button
+                      type="button"
+                      className="icon-button hover:bg-rose-50 hover:text-rose-600"
+                      aria-label="Leave room"
+                    >
+                      <LogOut size={20} />
+                    </button>
                   </PopoverTrigger>
                   <PopoverContent>
-                    <div className="px-1 py-2">
-                      <div className="text-small font-bold">
-                        Are you sure to leave this room?
-                      </div>
-                      <div className="flex justify-end gap-2">
+                    <div className="w-64 p-3">
+                      <div className="font-bold text-slate-900">Leave this room?</div>
+                      <p className="mt-1 text-sm text-slate-500">
+                        You will lose access to its tasks and chat.
+                      </p>
+                      <div className="mt-4 flex justify-end gap-2">
                         <button
                           onClick={onLeaveRoom}
-                          className="px-3 py-1 bg-red-400 rounded-sm text-sm"
+                          className="min-h-9 rounded-lg bg-rose-600 px-3 text-sm font-semibold text-white hover:bg-rose-700"
                         >
-                          Yes
+                          Leave room
                         </button>
                         <button
                           onClick={() => setOpenLeaveRoom(false)}
-                          className="px-3 py-1 bg-gray-200 rounded-sm text-sm"
+                          className="min-h-9 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-200"
                         >
-                          No
+                          Cancel
                         </button>
                       </div>
                     </div>
                   </PopoverContent>
                 </Popover>
               )}
-            </p>
-
-            <span>{roomDetail.roomDescription}</span>
-
-            <div className="flex flex-col gap-1 text-base px-3 py-1 bg-slate-100 rounded-sm">
-              <div className="flex gap-1 items-center ">
-                <Crown size={20} color={Style.CROWN} />
-                {roomDetail.owner.fullName}
               </div>
             </div>
-            <p className="flex items-center text-sm gap-2">
-              <span>Copy invite code</span>
-              <span
-                className="hover:opacity-50 hover:cursor-pointer"
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="inline-flex min-h-9 items-center gap-2 rounded-full bg-amber-50 px-3 text-sm font-semibold text-amber-700">
+                <Crown size={16} />
+                {roomDetail.owner.fullName}
+              </div>
+              <button
+                type="button"
+                className="inline-flex min-h-9 items-center gap-2 rounded-full bg-slate-100 px-3 text-sm font-semibold text-slate-600 transition hover:bg-indigo-50 hover:text-indigo-700"
                 onClick={handleCopyInviteCode}
               >
-                <Copy size={20} />
-              </span>
-            </p>
+                <Copy size={15} /> Copy invite code
+              </button>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col justify-between">
+        <div className="flex w-full shrink-0 flex-col justify-between gap-3 lg:w-auto">
           {roomDetail.owner.id === user?.id && (
             <Button
               onPress={onOpenAddTask}
-              className="bg-blue-500 text-white hover:bg-blue-600"
+              className="min-h-11 w-full bg-indigo-600 px-5 font-semibold text-white hover:bg-indigo-700 lg:w-auto"
             >
-              Add Task
+              <Plus size={18} /> Add task
             </Button>
           )}
 
@@ -924,8 +933,11 @@ function RoomTasksPage() {
                     onSubmit={addTaskForm.handleSubmit(onAddTask)}
                     className="space-y-6"
                   >
-                    <ModalHeader className="flex flex-col gap-1">
-                      Add new task
+                    <ModalHeader className="flex flex-col gap-1 text-slate-950">
+                      Create a task
+                      <span className="text-sm font-normal text-slate-500">
+                        Add the details your teammate needs to get started.
+                      </span>
                     </ModalHeader>
                     <ModalBody>
                       <FormField
@@ -1008,11 +1020,9 @@ function RoomTasksPage() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel className="mr-2">Assign to</FormLabel>
-                            <FormControl className="border rounded-sm">
-                              <select {...field}>
-                                <option value="" selected>
-                                  None
-                                </option>
+                            <FormControl>
+                              <select {...field} className="form-select">
+                                <option value="">Unassigned</option>
                                 {members.map((member) => (
                                   <option
                                     key={member.user.id}
@@ -1029,15 +1039,11 @@ function RoomTasksPage() {
                       />
                     </ModalBody>
                     <ModalFooter>
-                      <Button
-                        color="danger"
-                        variant="light"
-                        onPress={onCloseAddTask}
-                      >
-                        Close
+                      <Button variant="light" onPress={onCloseAddTask}>
+                        Cancel
                       </Button>
                       <Button color="primary" type="submit">
-                        Add
+                        Create task
                       </Button>
                     </ModalFooter>
                   </form>
@@ -1045,95 +1051,106 @@ function RoomTasksPage() {
               )}
             </ModalContent>
           </Modal>
-          <Link href={`/rooms/${id}/members`} passHref>
-            <Button className="bg-green-500 text-white hover:bg-green-600">
-              Members
-            </Button>
-          </Link>
-          <Link href={`/rooms/${id}/chat`} passHref>
-            <Button className="bg-purple-500 text-white hover:bg-purple-600 w-full">
-              Chat
-            </Button>
-          </Link>
         </div>
-      </div>
+      </section>
+
+      <RoomTabs roomId={id} active="tasks" />
 
       {/* Task list */}
-      <div className="mt-10 mb-3 text-center font-bold text-3xl relative text-white">
-        Tasks
-        <span
-          className="absolute right-0 cursor-pointer hover:opacity-60 mr-4"
-          onClick={() => loadRoomTasks()}
-        >
-          <RefreshCcw color={Style.WHITE} />
-        </span>
-      </div>
+      <section className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-indigo-600">Kanban board</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-950">Tasks</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Drag a task between columns or update its status from the card.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            onClick={() => loadRoomTasks()}
+          >
+            <RefreshCcw size={17} /> Refresh
+          </button>
+          <button
+            type="button"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            onClick={() => setIsDateRangePickerOpen(!isDateRangePickerOpen)}
+          >
+            <ListFilter size={17} /> Filter by date
+          </button>
+        </div>
+      </section>
 
       {/* Date range picker MODAL */}
       <div
-        className="fixed top-[60px] left-1/2 -translate-x-1/2 z-[1000] bg-white p-4 shadow-md rounded-md"
-        style={{ display: isDateRangePickerOpen ? "block" : "none" }}
+        className="fixed inset-0 z-[1000] items-start justify-center overflow-y-auto bg-slate-950/35 px-3 py-20 backdrop-blur-sm"
+        style={{ display: isDateRangePickerOpen ? "flex" : "none" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filter tasks by date"
       >
-        <DateRangePicker
-          ranges={[selectionRange]}
-          onChange={handleSelectDateRange}
-          rangeColors={["#3182ce"]}
-          moveRangeOnFirstSelection={false}
-          months={2}
-          direction="horizontal"
-        />
-        <div className="flex gap-4 justify-end">
-          {/* cancel button */}
-          <button
-            className="mt-2 px-3 py-1 text-sm bg-gray-300 hover:bg-gray-400 text-black rounded transition-colors"
-            onClick={handleCancelFilterDateRange}
-          >
-            Cancel
-          </button>
-          <button
-            className="mt-2 px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
-            onClick={handleFilterByDateRange}
-          >
-            Filter
-          </button>
+        <div className="max-w-full overflow-hidden rounded-2xl bg-white p-4 shadow-2xl sm:p-5">
+          <div className="mb-3 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-slate-950">Filter by date</h3>
+              <p className="text-xs text-slate-500">Show tasks due within a date range.</p>
+            </div>
+            <button type="button" className="icon-button" onClick={handleCancelFilterDateRange} aria-label="Close date filter">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="max-w-full overflow-x-auto">
+            <DateRangePicker
+              ranges={[selectionRange]}
+              onChange={handleSelectDateRange}
+              rangeColors={["#4f46e5"]}
+              moveRangeOnFirstSelection={false}
+              months={1}
+              direction="vertical"
+            />
+          </div>
+          <div className="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button
+              className="min-h-10 rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              onClick={handleCancelFilterDateRange}
+            >
+              Cancel
+            </button>
+            <button
+              className="min-h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+              onClick={handleFilterByDateRange}
+            >
+              Apply filter
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col items-center relative mb-5 gap-2">
-        <button
-          className="
-         px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors
-        "
-          onClick={() => setIsDateRangePickerOpen(!isDateRangePickerOpen)}
-        >
-          Filter by date
-        </button>
+      <div className="flex flex-col gap-2">
         {submitDateRange.startDate && submitDateRange.endDate && (
-          <div className="flex gap-4 px-4 p-2 shadow-md rounded-md bg-white">
-            <span>
+          <div className="flex flex-col gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800 sm:flex-row sm:items-center sm:justify-between">
+            <span className="font-medium">
               {format(new Date(submitDateRange.startDate), "dd MMMM, yyyy")} -{" "}
               {format(new Date(submitDateRange.endDate), "dd MMMM, yyyy")}
             </span>
             <button
-              className="text-blue-500 hover:underline"
+              className="self-start font-semibold text-indigo-700 hover:text-indigo-900 sm:self-auto"
               onClick={handleResetFilterDateRange}
             >
-              Reset filter
+              Clear filter
             </button>
           </div>
         )}
       </div>
 
-      <div></div>
-
       {loadingTasks ? (
-        <div className="text-center">
-          <Spinner />
-        </div>
+        <PageLoading label="Loading tasks" />
       ) : roomTaskList.length > 0 ? (
-        <div className="flex gap-5 justify-between mx-2">
+        <div className="flex w-full max-w-full snap-x snap-mandatory gap-4 overflow-x-auto pb-4 lg:overflow-visible">
           {/* 3 task columns base on status */}
-          {Object.entries(TaskStatus).map(([status, _]) => {
+          {Object.values(TaskStatus).map((status) => {
             let tasksToShow: Task[] = [];
             switch (status) {
               case TaskStatus.TODO:
@@ -1199,16 +1216,16 @@ function RoomTasksPage() {
                   >
                     <div
                       key={task.id}
-                      className={` rounded-md pr-2 ${
-                        roomDetail?.owner?.id === user?.id ? "pl-6" : ""
-                      } py-2 flex justify-between relative`}
+                      className="relative flex min-h-52 justify-between p-4"
                     >
                       {user?.id === roomDetail?.owner?.id && (
                         <button
+                          type="button"
                           onClick={() => onOpenUpdateTaskWithValues(task)}
-                          className="text-lg cursor-pointer absolute -top-1 -left-1"
+                          className="icon-button absolute right-2 top-2 z-10 size-9 rounded-lg"
+                          aria-label={`Edit task ${task.title}`}
                         >
-                          <Settings />
+                          <Settings size={17} />
                         </button>
                       )}
                       <Modal
@@ -1221,12 +1238,15 @@ function RoomTasksPage() {
                             <Form {...updateTaskForm}>
                               <form
                                 onSubmit={updateTaskForm.handleSubmit(
-                                  onEditTask
+                                  onEditTask,
                                 )}
                                 className="space-y-6"
                               >
-                                <ModalHeader className="flex flex-col gap-1">
+                                <ModalHeader className="flex flex-col gap-1 text-slate-950">
                                   Update task
+                                  <span className="text-sm font-normal text-slate-500">
+                                    Keep the task details and ownership up to date.
+                                  </span>
                                 </ModalHeader>
                                 <ModalBody>
                                   <FormField
@@ -1281,24 +1301,19 @@ function RoomTasksPage() {
                                               variant="bordered"
                                               defaultValue={fromDate(
                                                 new Date(field.value),
-                                                getLocalTimeZone()
+                                                getLocalTimeZone(),
                                               )}
                                               className="w-full"
                                               aria-label="Select due date"
                                               onChange={(date) => {
                                                 if (!date) return;
                                                 field.onChange(
-                                                  date.toDate().toISOString()
+                                                  date.toDate().toISOString(),
                                                 );
                                                 // set field value to date string
                                                 field.value = date
                                                   .toDate()
                                                   .toISOString();
-                                                console.log(
-                                                  "Selected due date:",
-                                                  field.value,
-                                                  field
-                                                );
                                               }}
                                             />
                                             {/* <Input
@@ -1320,25 +1335,13 @@ function RoomTasksPage() {
                                         <FormLabel className="mr-2">
                                           Assign to
                                         </FormLabel>
-                                        <FormControl className="border rounded-sm">
-                                          <select {...field}>
-                                            <option
-                                              value=""
-                                              selected={
-                                                task.user?.id === "" ||
-                                                task.user?.id === null
-                                              }
-                                            >
-                                              None
-                                            </option>
+                                        <FormControl>
+                                          <select {...field} className="form-select">
+                                            <option value="">Unassigned</option>
                                             {members.map((member) => (
                                               <option
                                                 key={member.user.id}
                                                 value={member.user.id}
-                                                selected={
-                                                  task.user?.id ===
-                                                  member.user.id
-                                                }
                                               >
                                                 {member.user.fullName}
                                               </option>
@@ -1351,15 +1354,11 @@ function RoomTasksPage() {
                                   />
                                 </ModalBody>
                                 <ModalFooter>
-                                  <Button
-                                    color="danger"
-                                    variant="light"
-                                    onPress={onCloseUpdateTask}
-                                  >
-                                    Close
+                                  <Button variant="light" onPress={onCloseUpdateTask}>
+                                    Cancel
                                   </Button>
                                   <Button color="primary" type="submit">
-                                    Update
+                                    Save changes
                                   </Button>
                                 </ModalFooter>
                               </form>
@@ -1369,50 +1368,58 @@ function RoomTasksPage() {
                       </Modal>
 
                       {/* Task item display */}
-                      <div className="flex flex-col w-full">
-                        <div className="flex items-center gap-2 justify-between">
-                          <h3 className="text-xl">{task.title}</h3>
-                          <ChevronRight
-                            size={18}
-                            className="cursor-pointer hover:opacity-60"
-                            onClick={() => handleOpenTaskDetailModal(task)}
-                          />
+                      <div className="flex w-full flex-col pr-7">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="line-clamp-2 text-base font-bold leading-6 text-slate-950">
+                            {task.title}
+                          </h3>
+                          {user?.id !== roomDetail?.owner?.id && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenTaskDetailModal(task)}
+                              className="icon-button -mr-7 size-9 rounded-lg"
+                              aria-label={`View task ${task.title}`}
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          )}
                         </div>
-                        <p className="flex items-center">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenTaskDetailModal(task)}
+                          className="mt-2 line-clamp-2 text-left text-sm leading-5 text-slate-500 hover:text-slate-700"
+                        >
+                          {task.description}
+                        </button>
+                        <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
                           {task.user ? (
                             <Tooltip content={task.user.email}>
-                              <p className="flex items-center gap-1">
-                                <CircleUserRound
-                                  size={20}
-                                  className="text-xl text-blue-500"
-                                />
-                                <span>{task.user.fullName}</span>
-                              </p>
+                              <div className="flex min-w-0 items-center gap-2">
+                                <Avatar name={task.user.fullName} className="size-7 rounded-lg text-[10px]" />
+                                <span className="truncate font-medium">{task.user.fullName}</span>
+                              </div>
                             </Tooltip>
                           ) : (
-                            <p className="flex items-center gap-1">
-                              <CircleUserRound
-                                size={20}
-                                className="text-xl text-red-500"
-                              />
-                              <span className="text-red-500">Unassigned</span>
-                            </p>
+                            <div className="flex items-center gap-2 text-slate-400">
+                              <Avatar name="?" className="size-7 rounded-lg bg-slate-100 text-[10px] text-slate-500" />
+                              <span>Unassigned</span>
+                            </div>
                           )}
-                        </p>
-                        <p className="flex items-center gap-1 text-sm">
-                          <Calendar className="text-blue-500" size={16} />
+                        </div>
+                        <p className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-500">
+                          <Calendar className="text-indigo-500" size={15} />
                           <span>
                             {format(
                               new Date(task.dueDate),
-                              "MMM dd, yyyy hh:mm a"
+                              "MMM dd, yyyy hh:mm a",
                             )}
                           </span>
                         </p>
-                        {roomDetail?.owner?.id === user?.id ||
-                          (task?.user?.id === user?.id && (
+                        {(roomDetail?.owner?.id === user?.id ||
+                          task?.user?.id === user?.id) && (
                             <form
                               onSubmit={updateStatus}
-                              className="flex gap-2 self-end items-center"
+                              className="mt-4 flex items-center gap-2"
                             >
                               <input
                                 type="hidden"
@@ -1422,7 +1429,8 @@ function RoomTasksPage() {
                               <select
                                 name="status"
                                 defaultValue={task.status}
-                                className="border rounded-sm p-1 bg-white text-[12px] border-gray-300 flex-1"
+                                aria-label={`Status for ${task.title}`}
+                                className="min-h-9 flex-1 rounded-lg border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-700"
                                 onChange={(e) =>
                                   onChangeSelectStatus(e, task.id)
                                 }
@@ -1432,12 +1440,8 @@ function RoomTasksPage() {
                                   <option
                                     key={status}
                                     value={status}
-                                    selected={
-                                      statusUpdateTask[task.id] === status ||
-                                      task.status === status
-                                    }
                                   >
-                                    {status}
+                                    {status === TaskStatus.PROCESSING ? "IN PROGRESS" : status}
                                   </option>
                                 ))}
                               </select>
@@ -1445,7 +1449,7 @@ function RoomTasksPage() {
                                 color="primary"
                                 size="sm"
                                 type="submit"
-                                className="bg-blue-500 text-white hover:bg-blue-600 disabled:bg-blue-200 disabled:cursor-not-allowed"
+                                className="min-h-9 bg-indigo-600 text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-200"
                                 disabled={
                                   statusUpdateTask[task.id] === task.status ||
                                   !statusUpdateTask[task.id]
@@ -1454,7 +1458,7 @@ function RoomTasksPage() {
                                 Update
                               </Button>
                             </form>
-                          ))}
+                          )}
                       </div>
                     </div>
                   </DraggableTask>
@@ -1464,11 +1468,23 @@ function RoomTasksPage() {
           })}
         </div>
       ) : (
-        <div className="text-center w-[400px] border rounded-sm border-red-500 bg-red-200 mx-auto py-1">
-          <h1 className="text-red-500 text-lg">No tasks</h1>
-        </div>
+        <EmptyState
+          title="No tasks yet"
+          description="Create the first task for this room, or adjust your date filter to see more work."
+          action={
+            roomDetail.owner.id === user?.id ? (
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700"
+                onClick={onOpenAddTask}
+              >
+                <Plus size={18} /> Create a task
+              </button>
+            ) : undefined
+          }
+        />
       )}
-    </div>
+    </main>
   );
 }
 export default RoomTasksPage;

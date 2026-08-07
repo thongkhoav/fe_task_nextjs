@@ -17,13 +17,8 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${inter.className} w-full bg-[url('/gradient_bg.webp')] bg-cover bg-center`}
-      >
-        <AppProvider>
-          <div className="flex justify-center w-full">{children}</div>
-        </AppProvider>
-        {/* {children} */}
+      <body className={`${inter.className} w-full antialiased`}>
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );

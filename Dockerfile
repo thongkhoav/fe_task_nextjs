@@ -31,5 +31,6 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-EXPOSE 3000
+ENV PORT=3000
+EXPOSE ${PORT}
 CMD ["npm", "start"]
