@@ -1,29 +1,42 @@
-### Task manament FE using NextJS
+# Task Rooms (Next.js)
 
-### Backend source code: https://github.com/thongkhoav/be_task_nestjs
+Frontend for a real-time team task board: create a room, invite teammates with a code, drag tasks
+across columns, chat, and receive push notifications.
 
-- To run dev: set `PORT` in `.env` if needed (default: `3000`), then run `npm run dev`
-- File to add before run the app:
-  - Complete .env including firebase messenging
-  - public/firebase-messaging-sw.js
-  - Install packages
-- To test notifications, please Allow Notification feature on the browser
-- File src/swEnvBuild.js to create file swEnv.js with env to public folder
-- Docker run: docker run -d --env-file /home/ec2-user/frontend/.env -p 80:3000 --network mynetwork --name frontend thongkhoav/fe-task-amd64:v1
-- Copy source to server: scp -i keypem.pem -r ~/project-path ec2-user@4{IP}:/home/ec2-user/frontend
+Backend: [be_task_nestjs](https://github.com/thongkhoav/be_task_nestjs) (NestJS, PostgreSQL, Redis).
 
-## 🚀 Features
+## Features
 
-### ✅ Core Features
+- **Auth**: sign up, log in, forgot/reset password; JWT kept in cookies.
+- **Rooms**: the creator becomes the owner and invites members with a room invite code.
+- **Task board**: drag-and-drop columns (react-dnd); owners create and assign tasks, members update
+  only their own.
+- **Real time**: task changes and room chat arrive instantly over Socket.io.
+- **Push notifications**: Firebase Cloud Messaging through a service worker, plus an in-app
+  notifications page.
 
-- **User Authentication** (login/signup)
-- **Room Creation**: A user can create a room and becomes the owner
-- **Room Management**:
-  - Owners can invite members using a **room invite code**
-  - Owners can add, assign, and update tasks
-- **Task Assignment**:
-  - Owners assign tasks to members
-  - Members can only update tasks assigned to them
-- **Real-time Updates**:
+## Stack
 
-  - Tasks update instantly for everyone in the room via **WebSockets**
+Next.js 14 (App Router) · TypeScript · Tailwind CSS · shadcn/ui (Radix) + HeroUI ·
+React Hook Form + Zod · Axios · Socket.io client · Firebase · Docker
+
+## Run locally
+
+Start the [backend](https://github.com/thongkhoav/be_task_nestjs) first, then:
+
+```bash
+cp .env.example .env    # API URL and Firebase web config
+npm install
+npm run dev             # http://localhost:3000 (set PORT to change)
+```
+
+`src/swEnvBuild.js` writes the Firebase config to `public/swEnv.js` for the messaging service
+worker. Allow notifications in the browser to test push.
+
+## Deployment
+
+The app ships as a Docker image and ran on EC2 next to the backend:
+
+```bash
+docker run -d --env-file .env -p 80:3000 --network mynetwork --name frontend <image>
+```
